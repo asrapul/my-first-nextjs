@@ -1,22 +1,63 @@
+'use client'
+
 import Image from "next/image";
+import { useTheme } from "@/components/ThemeProvider";
+import ThemeToggle from "@/components/ThemeToggle";
 
 export default function Home() {
+  const { theme } = useTheme();
+
+  // Theme-based classes
+  const isDark = theme === 'dark';
+  
+  const bgGradient = isDark 
+    ? 'bg-gradient-to-b from-[#2a1a1e] via-[#3d2629] to-[#2a1a1e]' 
+    : 'bg-gradient-to-b from-gray-50 via-white to-gray-50';
+  
+  const textColor = isDark ? 'text-white' : 'text-gray-800';
+  const navBg = isDark ? 'bg-[#2a1a1e]/80' : 'bg-white/80';
+  const navBorder = isDark ? 'border-[#6B4C52]' : 'border-gray-200';
+  const navTitle = isDark ? 'text-[#E8D4D8]' : 'text-[#667eea]';
+  const navLink = isDark ? 'hover:text-[#E8D4D8]' : 'hover:text-[#667eea]';
+  const navLinkText = isDark ? 'text-gray-300' : 'text-gray-600';
+  
+  const accentColor = isDark ? 'text-[#E8D4D8]' : 'text-[#667eea]';
+  const accentBg = isDark ? 'bg-[#E8D4D8]' : 'bg-[#667eea]';
+  const accentText = isDark ? 'text-[#2a1a1e]' : 'text-white';
+  const secondaryAccent = isDark ? 'text-[#D4B8BE]' : 'text-[#764ba2]';
+  
+  const tagBg = isDark ? 'bg-[#452829]/30 border-[#E8D4D8]' : 'bg-[#667eea]/10 border-[#667eea]';
+  const tagText = isDark ? 'text-[#E8D4D8]' : 'text-[#667eea]';
+  
+  const sectionBg = isDark ? 'bg-[#3d2629]/50' : 'bg-gray-100';
+  const cardBg = isDark 
+    ? 'border-[#6B4C52] bg-[#3d2629]/50 hover:bg-[#452829]/50 hover:border-[#E8D4D8]' 
+    : 'border-gray-200 bg-white hover:bg-gray-50 hover:border-[#667eea] shadow-sm';
+  
+  const mutedText = isDark ? 'text-slate-200' : 'text-gray-600';
+  const footerBg = isDark ? 'bg-[#2a1a1e] border-[#6B4C52]' : 'bg-gray-100 border-gray-200';
+  const footerText = isDark ? 'text-slate-400' : 'text-gray-500';
+  const footerLink = isDark ? 'hover:text-[#E8D4D8]' : 'hover:text-[#667eea]';
+
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#2a1a1e] via-[#3d2629] to-[#2a1a1e] text-white font-sans">
+    <div className={`min-h-screen ${bgGradient} ${textColor} font-sans`}>
       {/* Navigation */}
-      <nav className="fixed top-0 w-full bg-[#2a1a1e]/80 backdrop-blur-md border-b border-[#6B4C52] z-50">
+      <nav className={`fixed top-0 w-full ${navBg} backdrop-blur-md border-b ${navBorder} z-50`}>
         <div className="max-w-4xl mx-auto px-6 py-4 flex justify-between items-center">
-          <h2 className="text-xl font-bold text-[#E8D4D8]">Andi Asyraful</h2>
-          <div className="flex gap-6">
-            <a href="#about" className="hover:text-[#E8D4D8] transition">
-              About
-            </a>
-            <a href="#interests" className="hover:text-[#E8D4D8] transition">
-              Interests
-            </a>
-            <a href="#contact" className="hover:text-[#E8D4D8] transition">
-              Contact
-            </a>
+          <h2 className={`text-xl font-bold ${navTitle}`}>Andi Asyraful</h2>
+          <div className="flex items-center gap-6">
+            <div className="flex gap-6">
+              <a href="#about" className={`${navLinkText} ${navLink} transition`}>
+                About
+              </a>
+              <a href="#interests" className={`${navLinkText} ${navLink} transition`}>
+                Interests
+              </a>
+              <a href="#contact" className={`${navLinkText} ${navLink} transition`}>
+                Contact
+              </a>
+            </div>
+            <ThemeToggle />
           </div>
         </div>
       </nav>
@@ -24,9 +65,9 @@ export default function Home() {
       {/* Hero Section */}
       <section className="pt-32 pb-20 px-6">
         <div className="max-w-4xl mx-auto grid md:grid-cols-2 gap-12 items-center">
-          {/* Photo Placeholder */}
+          {/* Photo */}
           <div className="flex justify-center">
-            <div className="relative w-64 h-80 rounded-lg overflow-hidden border-2 border-[#E8D4D8] shadow-2xl">
+            <div className={`relative w-64 h-80 rounded-lg overflow-hidden border-2 ${isDark ? 'border-[#E8D4D8]' : 'border-[#667eea]'} shadow-2xl`}>
               <Image
                 src="/Image/profile.jpg"
                 alt="Andi Asyraful"
@@ -42,41 +83,41 @@ export default function Home() {
             <div>
               <h1 className="text-5xl font-bold mb-2">Andi Asyraful</h1>
               <div className="flex flex-wrap gap-2 mb-4">
-                <span className="px-3 py-1 bg-[#452829]/30 border border-[#E8D4D8] rounded-full text-[#E8D4D8] text-sm">
+                <span className={`px-3 py-1 ${tagBg} border rounded-full ${tagText} text-sm`}>
                   RPL Developer
                 </span>
-                <span className="px-3 py-1 bg-[#452829]/30 border border-[#E8D4D8] rounded-full text-[#E8D4D8] text-sm">
+                <span className={`px-3 py-1 ${tagBg} border rounded-full ${tagText} text-sm`}>
                   17 Years Old
                 </span>
               </div>
             </div>
 
             <div className="space-y-4">
-              <p className="text-slate-200 leading-relaxed">
+              <p className={`${mutedText} leading-relaxed`}>
                 Seorang siswa kelas 12 dari{" "}
-                <span className="text-[#E8D4D8] font-semibold">
+                <span className={`${accentColor} font-semibold`}>
                   SMK Telkom Makassar
                 </span>
                 , jurusan{" "}
-                <span className="text-[#E8D4D8] font-semibold">
+                <span className={`${accentColor} font-semibold`}>
                   Rekayasa Perangkat Lunak (RPL)
                 </span>
                 .
               </p>
 
-              <p className="text-slate-200 leading-relaxed">
+              <p className={`${mutedText} leading-relaxed`}>
                 Memiliki minat kuat di bidang teknologi informasi, khususnya
-                <span className="text-[#D4B8BE]"> web development</span>,
-                <span className="text-[#D4B8BE]"> software engineering</span>, dan
-                <span className="text-[#D4B8BE]"> cyber security</span>.
+                <span className={secondaryAccent}> web development</span>,
+                <span className={secondaryAccent}> software engineering</span>, dan
+                <span className={secondaryAccent}> cyber security</span>.
               </p>
             </div>
 
             <div className="flex gap-4 pt-4">
-              <button className="px-6 py-2 bg-[#E8D4D8] text-[#2a1a1e] rounded-lg font-semibold hover:bg-[#D4B8BE] transition">
+              <button className={`px-6 py-2 ${accentBg} ${accentText} rounded-lg font-semibold hover:opacity-90 transition`}>
                 Learn More
               </button>
-              <button className="px-6 py-2 border border-[#E8D4D8] text-[#E8D4D8] rounded-lg font-semibold hover:bg-[#E8D4D8]/10 transition">
+              <button className={`px-6 py-2 border ${isDark ? 'border-[#E8D4D8] text-[#E8D4D8] hover:bg-[#E8D4D8]/10' : 'border-[#667eea] text-[#667eea] hover:bg-[#667eea]/10'} rounded-lg font-semibold transition`}>
                 Get In Touch
               </button>
             </div>
@@ -85,43 +126,43 @@ export default function Home() {
       </section>
 
       {/* About Section */}
-      <section id="about" className="py-20 px-6 bg-[#3d2629]/50">
+      <section id="about" className={`py-20 px-6 ${sectionBg}`}>
         <div className="max-w-4xl mx-auto">
-          <h2 className="text-3xl font-bold mb-12 text-[#E8D4D8]">
+          <h2 className={`text-3xl font-bold mb-12 ${accentColor}`}>
             Tentang Saya
           </h2>
 
           <div className="grid md:grid-cols-2 gap-12">
             <div className="space-y-4">
-              <h3 className="text-xl font-semibold text-[#D4B8BE]">
+              <h3 className={`text-xl font-semibold ${secondaryAccent}`}>
                 Aktivitas & Pengalaman
               </h3>
-              <ul className="space-y-3 text-slate-200">
+              <ul className={`space-y-3 ${mutedText}`}>
                 <li className="flex gap-3">
-                  <span className="text-[#E8D4D8]">✦</span>
+                  <span className={accentColor}>✦</span>
                   <span>Aktif mengikuti berbagai lomba IT</span>
                 </li>
                 <li className="flex gap-3">
-                  <span className="text-[#E8D4D8]">✦</span>
+                  <span className={accentColor}>✦</span>
                   <span>Bimbingan dari software engineer berpengalaman</span>
                 </li>
                 <li className="flex gap-3">
-                  <span className="text-[#E8D4D8]">✦</span>
+                  <span className={accentColor}>✦</span>
                   <span>Tergabung dalam beberapa komunitas pembelajaran teknologi</span>
                 </li>
               </ul>
             </div>
 
             <div className="space-y-4">
-              <h3 className="text-xl font-semibold text-[#D4B8BE]">
+              <h3 className={`text-xl font-semibold ${secondaryAccent}`}>
                 Visi & Misi
               </h3>
-              <p className="text-slate-200 leading-relaxed">
+              <p className={`${mutedText} leading-relaxed`}>
                 Memiliki tujuan besar untuk mencapai kebebasan finansial di usia
                 muda dan menggunakan kemampuan untuk memberi dampak positif bagi
                 masyarakat Indonesia.
               </p>
-              <p className="text-slate-300 leading-relaxed text-sm pt-2 text-slate-400">
+              <p className={`${isDark ? 'text-slate-400' : 'text-gray-500'} leading-relaxed text-sm pt-2`}>
                 Saat ini berada di fase menentukan langkah masa depan, termasuk
                 mempertimbangkan kuliah di Indonesia atau Jerman, dengan
                 ketertarikan pada sistem kuliah sambil bekerja.
@@ -134,7 +175,7 @@ export default function Home() {
       {/* Interests Section */}
       <section id="interests" className="py-20 px-6">
         <div className="max-w-4xl mx-auto">
-          <h2 className="text-3xl font-bold mb-12 text-[#E8D4D8]">
+          <h2 className={`text-3xl font-bold mb-12 ${accentColor}`}>
             Area of Interest
           </h2>
 
@@ -155,12 +196,12 @@ export default function Home() {
             ].map((interest, idx) => (
               <div
                 key={idx}
-                className="p-6 rounded-lg border border-[#6B4C52] bg-[#3d2629]/50 hover:bg-[#452829]/50 hover:border-[#E8D4D8] transition cursor-pointer group"
+                className={`p-6 rounded-lg border ${cardBg} transition cursor-pointer group`}
               >
-                <h3 className="text-lg font-semibold text-[#E8D4D8] group-hover:text-[#D4B8BE] mb-2">
+                <h3 className={`text-lg font-semibold ${accentColor} group-hover:opacity-80 mb-2`}>
                   {interest.title}
                 </h3>
-                <p className="text-slate-400 text-sm">{interest.desc}</p>
+                <p className={`${isDark ? 'text-slate-400' : 'text-gray-500'} text-sm`}>{interest.desc}</p>
               </div>
             ))}
           </div>
@@ -168,27 +209,27 @@ export default function Home() {
       </section>
 
       {/* Footer */}
-      <footer id="contact" className="py-12 px-6 bg-[#2a1a1e] border-t border-[#6B4C52]">
+      <footer id="contact" className={`py-12 px-6 ${footerBg} border-t`}>
         <div className="max-w-4xl mx-auto text-center">
-          <p className="text-slate-400 mb-4">
+          <p className={`${footerText} mb-4`}>
             © 2025 Andi Asyraful. All rights reserved.
           </p>
           <div className="flex justify-center gap-6">
             <a
               href="#"
-              className="text-slate-400 hover:text-[#E8D4D8] transition"
+              className={`${footerText} ${footerLink} transition`}
             >
               GitHub
             </a>
             <a
               href="#"
-              className="text-slate-400 hover:text-[#E8D4D8] transition"
+              className={`${footerText} ${footerLink} transition`}
             >
               LinkedIn
             </a>
             <a
               href="#"
-              className="text-slate-400 hover:text-[#E8D4D8] transition"
+              className={`${footerText} ${footerLink} transition`}
             >
               Email
             </a>
