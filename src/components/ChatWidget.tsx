@@ -379,7 +379,6 @@ export default function ChatWidget() {
       timestamp: new Date(),
     }]
     setMessages(newMessages)
-    setShowQuickReplies(true)
     try {
       localStorage.removeItem(STORAGE_KEY)
     } catch {
