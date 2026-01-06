@@ -75,7 +75,7 @@ export default function ChatWidget() {
   const [showQuickReplies, setShowQuickReplies] = useState(true)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const notificationSoundRef = useRef<HTMLAudioElement | null>(null)
-  const recognitionRef = useRef<SpeechRecognition | null>(null)
+  const recognitionRef = useRef<SpeechRecognitionInstance | null>(null)
 
   // Initialize notification sound
   useEffect(() => {
@@ -85,25 +85,27 @@ export default function ChatWidget() {
 
   // Initialize speech recognition
   useEffect(() => {
-    if (typeof window !== 'undefined' && ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)) {
-      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
-      recognitionRef.current = new SpeechRecognition()
-      recognitionRef.current.continuous = false
-      recognitionRef.current.interimResults = false
-      recognitionRef.current.lang = language === 'id' ? 'id-ID' : language === 'ja' ? 'ja-JP' : 'en-US'
-      
-      recognitionRef.current.onresult = (event) => {
-        const transcript = event.results[0][0].transcript
-        setInputValue(transcript)
-        setIsRecording(false)
-      }
-      
-      recognitionRef.current.onerror = () => {
-        setIsRecording(false)
-      }
-      
-      recognitionRef.current.onend = () => {
-        setIsRecording(false)
+    if (typeof window !== 'undefined') {
+      const SpeechRecognitionClass = window.SpeechRecognition || window.webkitSpeechRecognition
+      if (SpeechRecognitionClass) {
+        recognitionRef.current = new SpeechRecognitionClass()
+        recognitionRef.current.continuous = false
+        recognitionRef.current.interimResults = false
+        recognitionRef.current.lang = language === 'id' ? 'id-ID' : language === 'ja' ? 'ja-JP' : 'en-US'
+        
+        recognitionRef.current.onresult = (event) => {
+          const transcript = event.results[0][0].transcript
+          setInputValue(transcript)
+          setIsRecording(false)
+        }
+        
+        recognitionRef.current.onerror = () => {
+          setIsRecording(false)
+        }
+        
+        recognitionRef.current.onend = () => {
+          setIsRecording(false)
+        }
       }
     }
   }, [language])
@@ -859,9 +861,47 @@ export default function ChatWidget() {
 }
 
 // Add type declaration for SpeechRecognition
+interface SpeechRecognitionEvent extends Event {
+  results: SpeechRecognitionResultList
+}
+
+interface SpeechRecognitionResultList {
+  readonly length: number
+  item(index: number): SpeechRecognitionResult
+  [index: number]: SpeechRecognitionResult
+}
+
+interface SpeechRecognitionResult {
+  readonly length: number
+  readonly isFinal: boolean
+  item(index: number): SpeechRecognitionAlternative
+  [index: number]: SpeechRecognitionAlternative
+}
+
+interface SpeechRecognitionAlternative {
+  readonly transcript: string
+  readonly confidence: number
+}
+
+interface SpeechRecognitionInstance extends EventTarget {
+  continuous: boolean
+  interimResults: boolean
+  lang: string
+  onresult: ((event: SpeechRecognitionEvent) => void) | null
+  onerror: ((event: Event) => void) | null
+  onend: ((event: Event) => void) | null
+  start: () => void
+  stop: () => void
+  abort: () => void
+}
+
+interface SpeechRecognitionConstructor {
+  new (): SpeechRecognitionInstance
+}
+
 declare global {
   interface Window {
-    SpeechRecognition: typeof SpeechRecognition
-    webkitSpeechRecognition: typeof SpeechRecognition
+    SpeechRecognition?: SpeechRecognitionConstructor
+    webkitSpeechRecognition?: SpeechRecognitionConstructor
   }
 }
