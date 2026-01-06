@@ -362,7 +362,7 @@ export default function Home() {
                   </a>
                   
                   <a
-                    href="	https://www.linkedin.com/in/andi-asyraful-amal-ilham-8b09b730a/"
+                    href="https://www.linkedin.com/in/andi-asyraful-amal-ilham-8b09b730a/"
                     target="_blank"
                     rel="noopener noreferrer"
                     className={`group p-3 rounded-xl transition-all ${
