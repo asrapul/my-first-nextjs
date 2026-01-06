@@ -411,13 +411,19 @@ export default function ChatWidget() {
     <>
       {/* Chat Window */}
       {isOpen && (
-        <div className={`fixed bottom-24 right-6 w-[400px] h-[600px] rounded-3xl shadow-2xl flex flex-col overflow-hidden z-50 backdrop-blur-xl transition-all duration-300 ${
+        <div className={`fixed z-50 backdrop-blur-xl flex flex-col overflow-hidden shadow-2xl transition-all duration-300
+          inset-0 sm:inset-auto
+          sm:bottom-24 sm:right-4 md:right-6
+          sm:w-[calc(100vw-2rem)] sm:max-w-[400px] md:max-w-[420px] lg:max-w-[440px]
+          sm:h-[calc(100vh-8rem)] sm:max-h-[600px] md:max-h-[650px] lg:max-h-[700px]
+          rounded-none sm:rounded-2xl md:rounded-3xl
+          ${
           isDark 
-            ? 'bg-[#0a0a0f]/95 border border-white/10' 
-            : 'bg-white/95 border border-gray-200'
+            ? 'bg-[#0a0a0f]/95 sm:border sm:border-white/10' 
+            : 'bg-white/95 sm:border sm:border-gray-200'
         }`}>
           {/* Header */}
-          <div className={`p-4 flex justify-between items-center ${
+          <div className={`p-3 sm:p-4 pt-[max(0.75rem,env(safe-area-inset-top))] sm:pt-4 flex justify-between items-center ${
             isDark 
               ? 'bg-gradient-to-r from-violet-600/20 via-fuchsia-600/20 to-cyan-600/20 border-b border-white/10' 
               : 'bg-gradient-to-r from-violet-100 via-fuchsia-100 to-cyan-100 border-b border-gray-200'
@@ -790,7 +796,7 @@ export default function ChatWidget() {
           </div>
 
           {/* Input Area */}
-          <div className={`p-4 border-t ${
+          <div className={`p-3 sm:p-4 border-t pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:pb-4 ${
             isDark 
               ? 'border-white/10 bg-[#0a0a0f]/50' 
               : 'border-gray-200 bg-white/80'
@@ -800,7 +806,7 @@ export default function ChatWidget() {
               {recognitionRef.current && (
                 <button
                   onClick={toggleVoiceRecording}
-                  className={`p-3 rounded-xl transition-all ${
+                  className={`p-2.5 sm:p-3 rounded-xl transition-all flex-shrink-0 ${
                     isRecording 
                       ? 'bg-red-500 text-white animate-pulse' 
                       : isDark 
@@ -821,7 +827,7 @@ export default function ChatWidget() {
                 onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
                 placeholder={isRecording ? 'Listening...' : placeholders[language]}
                 disabled={isLoading}
-                className={`flex-1 px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500/50 disabled:cursor-not-allowed transition-all ${
+                className={`flex-1 min-w-0 px-3 sm:px-4 py-2.5 sm:py-3 rounded-xl text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-violet-500/50 disabled:cursor-not-allowed transition-all ${
                   isDark 
                     ? 'bg-white/5 border border-white/10 text-white placeholder-white/30 focus:border-violet-500/50 disabled:bg-white/5' 
                     : 'bg-gray-50 border border-gray-200 text-gray-900 placeholder-gray-400 focus:border-violet-400 disabled:bg-gray-100'
@@ -830,7 +836,7 @@ export default function ChatWidget() {
               <button
                 onClick={() => handleSend()}
                 disabled={isLoading || !inputValue.trim()}
-                className="bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white p-3 rounded-xl hover:opacity-90 transition-all disabled:opacity-30 disabled:cursor-not-allowed shadow-lg shadow-violet-500/20"
+                className="bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white p-2.5 sm:p-3 rounded-xl hover:opacity-90 transition-all disabled:opacity-30 disabled:cursor-not-allowed shadow-lg shadow-violet-500/20 flex-shrink-0"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
@@ -844,7 +850,12 @@ export default function ChatWidget() {
       {/* Floating Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="fixed bottom-6 right-6 w-14 h-14 bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white rounded-2xl shadow-lg shadow-violet-500/30 hover:scale-110 hover:shadow-xl hover:shadow-violet-500/40 transition-all flex items-center justify-center z-50"
+        className={`fixed z-50 bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white shadow-lg shadow-violet-500/30 hover:scale-110 hover:shadow-xl hover:shadow-violet-500/40 transition-all flex items-center justify-center
+          bottom-4 right-4 w-12 h-12 rounded-xl
+          sm:bottom-6 sm:right-4 sm:w-14 sm:h-14 sm:rounded-2xl
+          md:right-6
+          ${isOpen ? 'sm:opacity-100 opacity-0 pointer-events-none sm:pointer-events-auto' : 'opacity-100 pointer-events-auto'}
+        `}
       >
         {isOpen ? (
           <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
