@@ -72,7 +72,6 @@ export default function ChatWidget() {
   const [searchQuery, setSearchQuery] = useState('')
   const [showSearch, setShowSearch] = useState(false)
   const [isRecording, setIsRecording] = useState(false)
-  const [showQuickReplies, setShowQuickReplies] = useState(true)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const notificationSoundRef = useRef<HTMLAudioElement | null>(null)
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null)
@@ -127,7 +126,6 @@ export default function ChatWidget() {
           timestamp: new Date(msg.timestamp)
         }))
         setMessages(restored)
-        setShowQuickReplies(false)
       } else {
         setMessages([{
           id: 1,
@@ -308,7 +306,6 @@ export default function ChatWidget() {
     if (!text || isLoading) return
 
     setInputValue('')
-    setShowQuickReplies(false)
 
     const userMsg: Message = {
       id: Date.now(),
@@ -774,7 +771,7 @@ export default function ChatWidget() {
             )}
 
             {/* Quick Reply Suggestions */}
-            {showQuickReplies && !isLoading && messages.length <= 2 && (
+            {!isLoading && messages.length === 1 && messages[0].sender === 'bot' && (
               <div className="flex flex-wrap gap-2 mt-4">
                 {quickReplies[language].map((reply) => (
                   <button
