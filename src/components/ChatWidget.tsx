@@ -476,6 +476,35 @@ export default function ChatWidget() {
     setMessages((prev) => [...prev, userMsg])
     setIsLoading(true)
 
+    // Handle /test command for UI verification without API
+    if (text === '/test') {
+      setIsLoading(true)
+      setTimeout(() => {
+        const mockBotMsg: Message = {
+          id: Date.now() + 1,
+          text: `Ini adalah pesan tes untuk memverifikasi fitur UI.
+          
+Berikut adalah contoh kode Python:
+\`\`\`python
+def hello_world():
+    print("Hello, World!")
+    return True
+\`\`\`
+
+Dan contoh gambar (placeholder):`,
+          sender: 'bot',
+          timestamp: new Date(),
+          // Use a placeholder image for testing
+          image: 'https://placehold.co/600x400/png',
+          imagePrompt: 'A placeholder image for testing purposes',
+        }
+        setMessages((prev) => [...prev, mockBotMsg])
+        playNotificationSound()
+        setIsLoading(false)
+      }, 1000)
+      return
+    }
+
     try {
       const aiResponse = await sendMessageToAI(text || 'Please analyze this image', currentImage || undefined)
       const botMsg: Message = {
@@ -488,18 +517,11 @@ export default function ChatWidget() {
       }
       setMessages((prev) => [...prev, botMsg])
       playNotificationSound()
-    } catch {
-      const errorMessages: Record<Language, string> = {
-        id: 'Maaf, terjadi kesalahan. Coba lagi ya! 😅',
-        en: 'Sorry, an error occurred. Please try again! 😅',
-        es: 'Lo siento, ocurrió un error. ¡Inténtalo de nuevo! 😅',
-        fr: 'Désolé, une erreur s\'est produite. Réessayez! 😅',
-        de: 'Entschuldigung, ein Fehler ist aufgetreten. Versuchen Sie es erneut! 😅',
-        ja: '申し訳ありません、エラーが発生しました。もう一度お試しください！ 😅',
-      }
+    } catch (error: any) {
+      console.error('Chat error:', error)
       const errorMsg: Message = {
         id: Date.now() + 1,
-        text: errorMessages[language],
+        text: error.message || 'Maaf, terjadi kesalahan. Coba lagi ya! 😅',
         sender: 'bot',
         timestamp: new Date(),
       }
@@ -845,12 +867,17 @@ export default function ChatWidget() {
                       }`}>
                         <ReactMarkdown
                           components={{
-                            code: ({ className, children, ...props }) => {
-                              const isInline = !className
-                              if (isInline) {
-                                return <code className={className} {...props}>{children}</code>
+                            code({ node, className, children, ...props }) {
+                              const match = /language-(\w+)/.exec(className || '')
+                              const isBlock = node?.position?.start.line !== node?.position?.end.line || match
+                              
+                              if (isBlock) {
+                                return <CodeBlock className={className}>{children}</CodeBlock>
                               }
-                              return <CodeBlock className={className}>{children}</CodeBlock>
+                              return <code className={className} {...props}>{children}</code>
+                            },
+                            pre({ children }) {
+                              return <>{children}</>
                             }
                           }}
                         >
