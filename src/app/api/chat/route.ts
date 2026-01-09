@@ -180,13 +180,13 @@ export async function POST(request: NextRequest) {
     // Inisialisasi Gemini AI
     const ai = new GoogleGenAI({ apiKey })
 
-    // Ambil message dan language dari request body
-    const { message, history, language = 'id' } = await request.json()
+    // Ambil message, language, dan image dari request body
+    const { message, history, language = 'id', image } = await request.json()
 
-    // Validasi input
-    if (!message || typeof message !== 'string') {
+    // Validasi input - allow image-only requests
+    if ((!message || typeof message !== 'string') && !image) {
       return NextResponse.json(
-        { error: 'Message is required' },
+        { error: 'Message or image is required' },
         { status: 400 }
       )
     }
@@ -200,16 +200,40 @@ export async function POST(request: NextRequest) {
       parts: [{ text: msg.content }],
     })) || []
 
-    console.log('Calling Gemini API with language:', language)
+    console.log('Calling Gemini API with language:', language, 'Has image:', !!image)
+
+    // Build user message parts
+    const userParts: Array<{ text?: string; inlineData?: { mimeType: string; data: string } }> = []
+    
+    // Add text message
+    if (message) {
+      userParts.push({ text: message })
+    }
+    
+    // Add image if provided (for vision analysis)
+    if (image) {
+      // Extract base64 data from data URL
+      const matches = image.match(/^data:([^;]+);base64,(.+)$/)
+      if (matches) {
+        const mimeType = matches[1]
+        const data = matches[2]
+        userParts.push({
+          inlineData: {
+            mimeType,
+            data,
+          }
+        })
+      }
+    }
 
     // Generate response dengan tools
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-2.0-flash',
       contents: [
         { role: 'user', parts: [{ text: `${SYSTEM_PROMPT}\n\nLANGUAGE INSTRUCTION: ${langInstruction}` }] },
         { role: 'model', parts: [{ text: 'Baik, saya mengerti! Saya Asrap Bot, siap membantu. 😊' }] },
         ...conversationHistory,
-        { role: 'user', parts: [{ text: message }] },
+        { role: 'user', parts: userParts },
       ],
       config: {
         tools: [imageGenerationTool],

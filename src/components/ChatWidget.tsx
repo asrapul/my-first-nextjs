@@ -4,6 +4,8 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { useTheme } from './ThemeProvider'
 import ReactMarkdown from 'react-markdown'
 import Image from 'next/image'
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
+import { oneDark, oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism'
 
 interface Message {
   id: number
@@ -14,6 +16,7 @@ interface Message {
   isPinned?: boolean
   image?: string  // For AI generated images
   imagePrompt?: string  // Original prompt used for image generation
+  userImage?: string  // For user uploaded images
 }
 
 type Language = 'id' | 'en' | 'es' | 'fr' | 'de' | 'ja'
@@ -40,22 +43,22 @@ const placeholders: Record<Language, string> = {
 }
 
 const welcomeMessages: Record<Language, string> = {
-  id: 'Halo! Saya Asrap Bot. Ada yang bisa saya bantu? 👋',
-  en: 'Hello! I\'m Asrap Bot. How can I help you? 👋',
-  es: '¡Hola! Soy Asrap Bot. ¿En qué puedo ayudarte? 👋',
-  fr: 'Bonjour! Je suis Asrap Bot. Comment puis-je vous aider? 👋',
-  de: 'Hallo! Ich bin Asrap Bot. Wie kann ich Ihnen helfen? 👋',
-  ja: 'こんにちは！Asrap Botです。何かお手伝いできますか？ 👋',
+  id: 'Halo! Saya Asrap Bot. Saya bisa menjawab pertanyaan dan **generate gambar AI** 🎨. Ada yang bisa saya bantu? 👋',
+  en: 'Hello! I\'m Asrap Bot. I can answer questions and **generate AI images** 🎨. How can I help you? 👋',
+  es: '¡Hola! Soy Asrap Bot. Puedo responder preguntas y **generar imágenes AI** 🎨. ¿En qué puedo ayudarte? 👋',
+  fr: 'Bonjour! Je suis Asrap Bot. Je peux répondre aux questions et **générer des images AI** 🎨. Comment puis-je vous aider? 👋',
+  de: 'Hallo! Ich bin Asrap Bot. Ich kann Fragen beantworten und **AI-Bilder generieren** 🎨. Wie kann ich Ihnen helfen? 👋',
+  ja: 'こんにちは！Asrap Botです。質問に答えたり、**AI画像を生成**できます 🎨。何かお手伝いできますか？ 👋',
 }
 
 // Quick reply suggestions
 const quickReplies: Record<Language, string[]> = {
-  id: ['Siapa Asrap?', 'Skill apa saja?', 'Portfolio', 'Kontak'],
-  en: ['Who is Asrap?', 'What skills?', 'Portfolio', 'Contact'],
-  es: ['¿Quién es Asrap?', '¿Qué habilidades?', 'Portfolio', 'Contacto'],
-  fr: ['Qui est Asrap?', 'Quelles compétences?', 'Portfolio', 'Contact'],
-  de: ['Wer ist Asrap?', 'Welche Skills?', 'Portfolio', 'Kontakt'],
-  ja: ['Asrapは誰?', 'スキルは?', 'ポートフォリオ', '連絡先'],
+  id: ['Siapa Asrap?', 'Skill apa saja?', '🎨 Generate Gambar', 'Kontak'],
+  en: ['Who is Asrap?', 'What skills?', '🎨 Generate Image', 'Contact'],
+  es: ['¿Quién es Asrap?', '¿Qué habilidades?', '🎨 Generar Imagen', 'Contacto'],
+  fr: ['Qui est Asrap?', 'Quelles compétences?', '🎨 Générer Image', 'Contact'],
+  de: ['Wer ist Asrap?', 'Welche Skills?', '🎨 Bild Generieren', 'Kontakt'],
+  ja: ['Asrapは誰?', 'スキルは?', '🎨 画像生成', '連絡先'],
 }
 
 export default function ChatWidget() {
@@ -78,9 +81,15 @@ export default function ChatWidget() {
   const [lightboxPrompt, setLightboxPrompt] = useState<string | null>(null)
   const [imageCopied, setImageCopied] = useState(false)
   const [showGallery, setShowGallery] = useState(false)
+  // New states for TTS and Image Upload
+  const [speakingId, setSpeakingId] = useState<number | null>(null)
+  const [selectedImage, setSelectedImage] = useState<string | null>(null)
+  const [codeCopied, setCodeCopied] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const notificationSoundRef = useRef<HTMLAudioElement | null>(null)
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null)
+  const speechSynthRef = useRef<SpeechSynthesisUtterance | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   // Initialize notification sound
   useEffect(() => {
@@ -292,8 +301,130 @@ export default function ChatWidget() {
     setLightboxPrompt(prompt || null)
   }
 
+  // Text-to-Speech function
+  const speakText = useCallback((text: string, messageId: number) => {
+    // Stop any current speech
+    if (window.speechSynthesis.speaking) {
+      window.speechSynthesis.cancel()
+    }
+
+    // Clean text from markdown
+    const cleanText = text
+      .replace(/\*\*/g, '')
+      .replace(/\*/g, '')
+      .replace(/`{3}[\s\S]*?`{3}/g, 'code block')
+      .replace(/`/g, '')
+      .replace(/#{1,6}\s/g, '')
+      .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+
+    const utterance = new SpeechSynthesisUtterance(cleanText)
+    
+    // Set language based on current language setting
+    const langMap: Record<Language, string> = {
+      id: 'id-ID',
+      en: 'en-US',
+      es: 'es-ES',
+      fr: 'fr-FR',
+      de: 'de-DE',
+      ja: 'ja-JP',
+    }
+    utterance.lang = langMap[language]
+    utterance.rate = 1
+    utterance.pitch = 1
+
+    utterance.onstart = () => setSpeakingId(messageId)
+    utterance.onend = () => setSpeakingId(null)
+    utterance.onerror = () => setSpeakingId(null)
+
+    speechSynthRef.current = utterance
+    window.speechSynthesis.speak(utterance)
+  }, [language])
+
+  // Stop speaking
+  const stopSpeaking = useCallback(() => {
+    window.speechSynthesis.cancel()
+    setSpeakingId(null)
+  }, [])
+
+  // Handle image upload
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    // Check file size (max 4MB)
+    if (file.size > 4 * 1024 * 1024) {
+      alert('Image too large. Max 4MB allowed.')
+      return
+    }
+
+    const reader = new FileReader()
+    reader.onloadend = () => {
+      setSelectedImage(reader.result as string)
+    }
+    reader.readAsDataURL(file)
+  }
+
+  // Remove selected image
+  const removeSelectedImage = () => {
+    setSelectedImage(null)
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ''
+    }
+  }
+
+  // Copy code to clipboard
+  const copyCode = async (code: string) => {
+    await navigator.clipboard.writeText(code)
+    setCodeCopied(true)
+    setTimeout(() => setCodeCopied(false), 2000)
+  }
+
+  // Custom Code Block component for syntax highlighting
+  const CodeBlock = ({ className, children }: { className?: string; children?: React.ReactNode }) => {
+    const match = /language-(\w+)/.exec(className || '')
+    const language = match ? match[1] : 'text'
+    const code = String(children).replace(/\n$/, '')
+    
+    return (
+      <div className="relative group my-2">
+        {/* Language label */}
+        <div className={`absolute top-0 left-0 px-2 py-0.5 text-[10px] font-mono rounded-tl-lg rounded-br-lg ${
+          isDark ? 'bg-white/20 text-white/60' : 'bg-gray-200 text-gray-600'
+        }`}>
+          {language}
+        </div>
+        
+        {/* Copy button */}
+        <button
+          onClick={() => copyCode(code)}
+          className={`absolute top-1 right-1 px-2 py-1 text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity ${
+            isDark 
+              ? 'bg-white/20 hover:bg-white/30 text-white' 
+              : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
+          }`}
+        >
+          {codeCopied ? '✓ Copied' : '📋 Copy'}
+        </button>
+        
+        <SyntaxHighlighter
+          style={isDark ? oneDark : oneLight}
+          language={language}
+          PreTag="div"
+          customStyle={{
+            margin: 0,
+            borderRadius: '0.5rem',
+            fontSize: '0.8rem',
+            paddingTop: '1.5rem',
+          }}
+        >
+          {code}
+        </SyntaxHighlighter>
+      </div>
+    )
+  }
+
   // Send message to API
-  const sendMessageToAI = async (userMessage: string): Promise<{ message: string; image?: string; imagePrompt?: string }> => {
+  const sendMessageToAI = async (userMessage: string, userImage?: string): Promise<{ message: string; image?: string; imagePrompt?: string }> => {
     try {
       const history = messages.slice(-10).map((msg) => ({
         role: msg.sender === 'user' ? 'user' : 'assistant',
@@ -307,6 +438,7 @@ export default function ChatWidget() {
           message: userMessage,
           history: history,
           language: language,
+          image: userImage, // Send uploaded image
         }),
       })
 
@@ -328,21 +460,24 @@ export default function ChatWidget() {
   // Handle send message
   const handleSend = async (messageText?: string) => {
     const text = messageText || inputValue.trim()
-    if (!text || isLoading) return
+    if ((!text && !selectedImage) || isLoading) return
 
+    const currentImage = selectedImage
     setInputValue('')
+    removeSelectedImage()
 
     const userMsg: Message = {
       id: Date.now(),
-      text: text,
+      text: text || (currentImage ? '📷 [Image uploaded]' : ''),
       sender: 'user',
       timestamp: new Date(),
+      userImage: currentImage || undefined,
     }
     setMessages((prev) => [...prev, userMsg])
     setIsLoading(true)
 
     try {
-      const aiResponse = await sendMessageToAI(text)
+      const aiResponse = await sendMessageToAI(text || 'Please analyze this image', currentImage || undefined)
       const botMsg: Message = {
         id: Date.now() + 1,
         text: aiResponse.message,
@@ -537,6 +672,27 @@ export default function ChatWidget() {
                 )}
               </div>
 
+              {/* Gallery Button - Always visible */}
+              <button
+                onClick={() => setShowGallery(true)}
+                className={`p-2 rounded-lg transition-colors relative ${
+                  isDark 
+                    ? 'hover:bg-white/10 text-white/70 hover:text-white' 
+                    : 'hover:bg-gray-100 text-gray-600 hover:text-gray-900'
+                }`}
+                title={galleryImages.length > 0 ? `View Gallery (${galleryImages.length} images)` : 'Gallery (No images yet)'}
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                {/* Badge showing image count - only when there are images */}
+                {galleryImages.length > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-violet-500 text-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center">
+                    {galleryImages.length}
+                  </span>
+                )}
+              </button>
+
               {/* Menu Button */}
               <div className="relative">
                 <button
@@ -687,10 +843,34 @@ export default function ChatWidget() {
                           ? 'prose-invert prose-p:text-white/90 prose-strong:text-white prose-code:text-violet-300 prose-code:bg-white/10' 
                           : 'prose-p:text-gray-800 prose-strong:text-gray-900 prose-code:text-violet-600 prose-code:bg-violet-50'
                       }`}>
-                        <ReactMarkdown>{msg.text}</ReactMarkdown>
+                        <ReactMarkdown
+                          components={{
+                            code: ({ className, children, ...props }) => {
+                              const isInline = !className
+                              if (isInline) {
+                                return <code className={className} {...props}>{children}</code>
+                              }
+                              return <CodeBlock className={className}>{children}</CodeBlock>
+                            }
+                          }}
+                        >
+                          {msg.text}
+                        </ReactMarkdown>
                       </div>
                     ) : (
-                      <p className="text-sm whitespace-pre-wrap leading-relaxed">{msg.text}</p>
+                      <>
+                        {/* User uploaded image */}
+                        {msg.userImage && (
+                          <div className="mb-2">
+                            <img 
+                              src={msg.userImage} 
+                              alt="Uploaded"
+                              className="max-w-full rounded-lg border border-white/20 max-h-40 object-cover"
+                            />
+                          </div>
+                        )}
+                        <p className="text-sm whitespace-pre-wrap leading-relaxed">{msg.text}</p>
+                      </>
                     )}
                     
                     {/* AI Generated Image with Enhanced Features */}
@@ -898,6 +1078,24 @@ export default function ChatWidget() {
                     <div className={`flex items-center gap-1 mt-1 opacity-0 group-hover:opacity-100 transition-opacity ${
                       isDark ? 'text-white/50' : 'text-gray-400'
                     }`}>
+                      {/* TTS Speaker */}
+                      <button
+                        onClick={() => speakingId === msg.id ? stopSpeaking() : speakText(msg.text, msg.id)}
+                        className={`p-1 rounded hover:bg-white/10 transition-colors ${
+                          speakingId === msg.id ? 'text-violet-400' : ''
+                        }`}
+                        title={speakingId === msg.id ? 'Stop speaking' : 'Read aloud'}
+                      >
+                        {speakingId === msg.id ? (
+                          <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M6 6h4v12H6zM14 6h4v12h-4z"/>
+                          </svg>
+                        ) : (
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                          </svg>
+                        )}
+                      </button>
                       {/* Like */}
                       <button
                         onClick={() => reactToMessage(msg.id, 'like')}
@@ -1011,7 +1209,49 @@ export default function ChatWidget() {
               ? 'border-white/10 bg-[#0a0a0f]/50' 
               : 'border-gray-200 bg-white/80'
           }`}>
+            {/* Image Preview */}
+            {selectedImage && (
+              <div className="mb-2 relative inline-block">
+                <img 
+                  src={selectedImage} 
+                  alt="Selected" 
+                  className="h-20 rounded-lg border border-violet-500/50"
+                />
+                <button
+                  onClick={removeSelectedImage}
+                  className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors"
+                >
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            )}
+            
             <div className="flex gap-2">
+              {/* Image Upload Button */}
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleImageUpload}
+                accept="image/*"
+                className="hidden"
+              />
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isLoading}
+                className={`p-2.5 sm:p-3 rounded-xl transition-all flex-shrink-0 ${
+                  isDark 
+                    ? 'bg-white/5 border border-white/10 text-white/70 hover:bg-white/10 hover:text-violet-400' 
+                    : 'bg-gray-50 border border-gray-200 text-gray-600 hover:bg-violet-50 hover:text-violet-600'
+                } disabled:opacity-50`}
+                title="Upload image for analysis"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+              </button>
+              
               {/* Voice Input Button */}
               {recognitionRef.current && (
                 <button
@@ -1035,7 +1275,7 @@ export default function ChatWidget() {
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
-                placeholder={isRecording ? 'Listening...' : placeholders[language]}
+                placeholder={isRecording ? 'Listening...' : selectedImage ? 'Describe or ask about this image...' : placeholders[language]}
                 disabled={isLoading}
                 className={`flex-1 min-w-0 px-3 sm:px-4 py-2.5 sm:py-3 rounded-xl text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-violet-500/50 disabled:cursor-not-allowed transition-all ${
                   isDark 
@@ -1045,7 +1285,7 @@ export default function ChatWidget() {
               />
               <button
                 onClick={() => handleSend()}
-                disabled={isLoading || !inputValue.trim()}
+                disabled={isLoading || (!inputValue.trim() && !selectedImage)}
                 className="bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white p-2.5 sm:p-3 rounded-xl hover:opacity-90 transition-all disabled:opacity-30 disabled:cursor-not-allowed shadow-lg shadow-violet-500/20 flex-shrink-0"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
