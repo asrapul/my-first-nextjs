@@ -12,6 +12,8 @@ interface Message {
   timestamp: Date
   reaction?: 'like' | 'dislike' | null
   isPinned?: boolean
+  image?: string  // For AI generated images
+  imagePrompt?: string  // Original prompt used for image generation
 }
 
 type Language = 'id' | 'en' | 'es' | 'fr' | 'de' | 'ja'
@@ -72,6 +74,10 @@ export default function ChatWidget() {
   const [searchQuery, setSearchQuery] = useState('')
   const [showSearch, setShowSearch] = useState(false)
   const [isRecording, setIsRecording] = useState(false)
+  const [lightboxImage, setLightboxImage] = useState<string | null>(null)
+  const [lightboxPrompt, setLightboxPrompt] = useState<string | null>(null)
+  const [imageCopied, setImageCopied] = useState(false)
+  const [showGallery, setShowGallery] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const notificationSoundRef = useRef<HTMLAudioElement | null>(null)
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null)
@@ -273,8 +279,21 @@ export default function ChatWidget() {
   // Get pinned messages
   const pinnedMessages = messages.filter(msg => msg.isPinned)
 
+  // Get all generated images for gallery
+  const galleryImages = messages.filter(msg => msg.image).map(msg => ({
+    image: msg.image!,
+    prompt: msg.imagePrompt || 'No prompt',
+    timestamp: msg.timestamp,
+  }))
+
+  // Open lightbox with image and prompt
+  const openLightbox = (image: string, prompt?: string) => {
+    setLightboxImage(image)
+    setLightboxPrompt(prompt || null)
+  }
+
   // Send message to API
-  const sendMessageToAI = async (userMessage: string) => {
+  const sendMessageToAI = async (userMessage: string): Promise<{ message: string; image?: string; imagePrompt?: string }> => {
     try {
       const history = messages.slice(-10).map((msg) => ({
         role: msg.sender === 'user' ? 'user' : 'assistant',
@@ -293,7 +312,13 @@ export default function ChatWidget() {
 
       const data = await response.json()
       if (!response.ok) throw new Error(data.error || 'Failed to get response')
-      return data.message
+      
+      // Return object with message, optional image and prompt
+      return {
+        message: data.message,
+        image: data.image || undefined,
+        imagePrompt: data.imagePrompt || undefined,
+      }
     } catch (error) {
       console.error('Error calling AI:', error)
       throw error
@@ -320,9 +345,11 @@ export default function ChatWidget() {
       const aiResponse = await sendMessageToAI(text)
       const botMsg: Message = {
         id: Date.now() + 1,
-        text: aiResponse,
+        text: aiResponse.message,
         sender: 'bot',
         timestamp: new Date(),
+        image: aiResponse.image,
+        imagePrompt: aiResponse.imagePrompt,
       }
       setMessages((prev) => [...prev, botMsg])
       playNotificationSound()
@@ -665,6 +692,193 @@ export default function ChatWidget() {
                     ) : (
                       <p className="text-sm whitespace-pre-wrap leading-relaxed">{msg.text}</p>
                     )}
+                    
+                    {/* AI Generated Image with Enhanced Features */}
+                    {msg.image && (
+                      <div className="mt-3 space-y-2">
+                        {/* Image with Click to Zoom */}
+                        <div className="relative group/img">
+                          <img
+                            src={msg.image}
+                            alt="AI Generated"
+                            className="rounded-lg max-w-full cursor-zoom-in hover:opacity-95 transition-all border border-white/10 hover:shadow-lg"
+                            onClick={() => openLightbox(msg.image!, msg.imagePrompt)}
+                          />
+                          {/* Zoom indicator */}
+                          <div className="absolute top-2 right-2 opacity-0 group-hover/img:opacity-100 transition-opacity">
+                            <span className={`text-xs px-2 py-1 rounded-lg backdrop-blur-sm ${
+                              isDark ? 'bg-black/50 text-white' : 'bg-white/80 text-gray-700'
+                            }`}>
+                              🔍 Click to zoom
+                            </span>
+                          </div>
+                        </div>
+                        
+                        {/* Image Info & Prompt */}
+                        {msg.imagePrompt && (
+                          <p className={`text-xs italic ${isDark ? 'text-white/30' : 'text-gray-400'}`}>
+                            &quot;{msg.imagePrompt}&quot;
+                          </p>
+                        )}
+                        
+                        {/* Action Buttons Row */}
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          {/* Download PNG */}
+                          <button
+                            onClick={() => {
+                              const link = document.createElement('a')
+                              link.href = msg.image!
+                              link.download = `asrap-ai-image-${Date.now()}.png`
+                              document.body.appendChild(link)
+                              link.click()
+                              document.body.removeChild(link)
+                            }}
+                            className={`text-xs px-2.5 py-1.5 rounded-lg transition-all flex items-center gap-1 ${
+                              isDark 
+                                ? 'bg-white/10 hover:bg-white/20 text-white/70 hover:text-white' 
+                                : 'bg-gray-100 hover:bg-gray-200 text-gray-600 hover:text-gray-800'
+                            }`}
+                            title="Download as PNG"
+                          >
+                            📥 PNG
+                          </button>
+                          
+                          {/* Copy to Clipboard */}
+                          <button
+                            onClick={async () => {
+                              try {
+                                const response = await fetch(msg.image!)
+                                const blob = await response.blob()
+                                await navigator.clipboard.write([
+                                  new ClipboardItem({ [blob.type]: blob })
+                                ])
+                                setImageCopied(true)
+                                setTimeout(() => setImageCopied(false), 2000)
+                              } catch {
+                                // Fallback: copy data URL
+                                await navigator.clipboard.writeText(msg.image!)
+                                setImageCopied(true)
+                                setTimeout(() => setImageCopied(false), 2000)
+                              }
+                            }}
+                            className={`text-xs px-2.5 py-1.5 rounded-lg transition-all flex items-center gap-1 ${
+                              isDark 
+                                ? 'bg-white/10 hover:bg-white/20 text-white/70 hover:text-white' 
+                                : 'bg-gray-100 hover:bg-gray-200 text-gray-600 hover:text-gray-800'
+                            }`}
+                            title="Copy to clipboard"
+                          >
+                            {imageCopied ? '✅ Copied!' : '📋 Copy'}
+                          </button>
+                          
+                          {/* Regenerate */}
+                          {msg.imagePrompt && (
+                            <button
+                              onClick={() => handleSend(`Generate image: ${msg.imagePrompt}`)}
+                              disabled={isLoading}
+                              className={`text-xs px-2.5 py-1.5 rounded-lg transition-all flex items-center gap-1 ${
+                                isLoading 
+                                  ? 'opacity-50 cursor-not-allowed' 
+                                  : isDark 
+                                    ? 'bg-violet-500/20 hover:bg-violet-500/30 text-violet-300 hover:text-violet-200' 
+                                    : 'bg-violet-100 hover:bg-violet-200 text-violet-600 hover:text-violet-700'
+                              }`}
+                              title="Generate similar image"
+                            >
+                              🔄 Regenerate
+                            </button>
+                          )}
+                          
+                          {/* Share */}
+                          <button
+                            onClick={async () => {
+                              if (navigator.share) {
+                                try {
+                                  const response = await fetch(msg.image!)
+                                  const blob = await response.blob()
+                                  const file = new File([blob], `asrap-ai-image.png`, { type: 'image/png' })
+                                  await navigator.share({
+                                    title: 'AI Generated Image by Asrap Bot',
+                                    text: msg.imagePrompt || 'Check out this AI generated image!',
+                                    files: [file],
+                                  })
+                                } catch {
+                                  // Fallback
+                                  window.open(msg.image, '_blank')
+                                }
+                              } else {
+                                window.open(msg.image, '_blank')
+                              }
+                            }}
+                            className={`text-xs px-2.5 py-1.5 rounded-lg transition-all flex items-center gap-1 ${
+                              isDark 
+                                ? 'bg-white/10 hover:bg-white/20 text-white/70 hover:text-white' 
+                                : 'bg-gray-100 hover:bg-gray-200 text-gray-600 hover:text-gray-800'
+                            }`}
+                            title="Share image"
+                          >
+                            📤 Share
+                          </button>
+                          
+                          {/* Edit Image */}
+                          {msg.imagePrompt && (
+                            <button
+                              onClick={() => {
+                                const editPrompt = prompt('Edit gambar ini. Tambahkan instruksi:', msg.imagePrompt)
+                                if (editPrompt && editPrompt.trim()) {
+                                  handleSend(`Edit gambar: ${editPrompt}`)
+                                }
+                              }}
+                              disabled={isLoading}
+                              className={`text-xs px-2.5 py-1.5 rounded-lg transition-all flex items-center gap-1 ${
+                                isLoading 
+                                  ? 'opacity-50 cursor-not-allowed' 
+                                  : isDark 
+                                    ? 'bg-fuchsia-500/20 hover:bg-fuchsia-500/30 text-fuchsia-300 hover:text-fuchsia-200' 
+                                    : 'bg-fuchsia-100 hover:bg-fuchsia-200 text-fuchsia-600 hover:text-fuchsia-700'
+                              }`}
+                              title="Edit this image"
+                            >
+                              ✏️ Edit
+                            </button>
+                          )}
+                          
+                          {/* Fullscreen/Zoom */}
+                          <button
+                            onClick={() => openLightbox(msg.image!, msg.imagePrompt)}
+                            className={`text-xs px-2.5 py-1.5 rounded-lg transition-all flex items-center gap-1 ${
+                              isDark 
+                                ? 'bg-white/10 hover:bg-white/20 text-white/70 hover:text-white' 
+                                : 'bg-gray-100 hover:bg-gray-200 text-gray-600 hover:text-gray-800'
+                            }`}
+                            title="View fullscreen"
+                          >
+                            🔍 Zoom
+                          </button>
+                          
+                          {/* Gallery */}
+                          {galleryImages.length > 1 && (
+                            <button
+                              onClick={() => setShowGallery(true)}
+                              className={`text-xs px-2.5 py-1.5 rounded-lg transition-all flex items-center gap-1 ${
+                                isDark 
+                                  ? 'bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 hover:text-cyan-200' 
+                                  : 'bg-cyan-100 hover:bg-cyan-200 text-cyan-600 hover:text-cyan-700'
+                              }`}
+                              title={`View all ${galleryImages.length} generated images`}
+                            >
+                              🖼️ Gallery ({galleryImages.length})
+                            </button>
+                          )}
+                        </div>
+                        
+                        {/* Credit */}
+                        <p className={`text-[10px] ${isDark ? 'text-white/30' : 'text-gray-400'}`}>
+                          🎨 Powered by Pollinations AI
+                        </p>
+                      </div>
+                    )}
+                    
                     <p
                       className={`text-xs mt-1.5 ${
                         msg.sender === 'user' 
@@ -863,6 +1077,189 @@ export default function ChatWidget() {
           </svg>
         )}
       </button>
+      
+      {/* Lightbox Modal for Fullscreen Image */}
+      {lightboxImage && (
+        <div 
+          className="fixed inset-0 z-[9999] bg-black/90 backdrop-blur-sm flex items-center justify-center p-4"
+          onClick={() => { setLightboxImage(null); setLightboxPrompt(null); }}
+        >
+          {/* Close Button */}
+          <button
+            onClick={() => { setLightboxImage(null); setLightboxPrompt(null); }}
+            className="absolute top-4 right-4 p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors cursor-pointer z-10"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+          
+          {/* Image Container */}
+          <div 
+            className="relative max-w-4xl max-h-[90vh] flex flex-col" 
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Prompt Display */}
+            {lightboxPrompt && (
+              <div className="text-center mb-3">
+                <p className="text-white/60 text-sm italic">&quot;{lightboxPrompt}&quot;</p>
+              </div>
+            )}
+            
+            <img
+              src={lightboxImage}
+              alt="AI Generated - Fullscreen"
+              className="max-w-full max-h-[75vh] object-contain rounded-lg shadow-2xl cursor-default"
+            />
+            
+            {/* Bottom Actions */}
+            <div className="mt-4 p-4 bg-black/50 rounded-lg backdrop-blur-sm">
+              <div className="flex flex-wrap items-center justify-center gap-3">
+                {/* Download */}
+                <button
+                  onClick={() => {
+                    const link = document.createElement('a')
+                    link.href = lightboxImage
+                    link.download = `asrap-ai-image-${Date.now()}.png`
+                    document.body.appendChild(link)
+                    link.click()
+                    document.body.removeChild(link)
+                  }}
+                  className="px-4 py-2 rounded-lg bg-white/20 hover:bg-white/30 text-white transition-colors flex items-center gap-2 cursor-pointer"
+                >
+                  📥 Download PNG
+                </button>
+                
+                {/* Copy */}
+                <button
+                  onClick={async () => {
+                    try {
+                      const response = await fetch(lightboxImage)
+                      const blob = await response.blob()
+                      await navigator.clipboard.write([
+                        new ClipboardItem({ [blob.type]: blob })
+                      ])
+                      setImageCopied(true)
+                      setTimeout(() => setImageCopied(false), 2000)
+                    } catch {
+                      await navigator.clipboard.writeText(lightboxImage)
+                      setImageCopied(true)
+                      setTimeout(() => setImageCopied(false), 2000)
+                    }
+                  }}
+                  className="px-4 py-2 rounded-lg bg-white/20 hover:bg-white/30 text-white transition-colors flex items-center gap-2 cursor-pointer"
+                >
+                  {imageCopied ? '✅ Copied!' : '📋 Copy Image'}
+                </button>
+                
+                {/* Edit */}
+                {lightboxPrompt && (
+                  <button
+                    onClick={() => {
+                      const editPrompt = prompt('Edit gambar ini. Tambahkan instruksi:', lightboxPrompt)
+                      if (editPrompt && editPrompt.trim()) {
+                        setLightboxImage(null)
+                        setLightboxPrompt(null)
+                        handleSend(`Edit gambar: ${editPrompt}`)
+                      }
+                    }}
+                    className="px-4 py-2 rounded-lg bg-fuchsia-500/30 hover:bg-fuchsia-500/40 text-white transition-colors flex items-center gap-2 cursor-pointer"
+                  >
+                    ✏️ Edit Image
+                  </button>
+                )}
+                
+                {/* Gallery */}
+                {galleryImages.length > 1 && (
+                  <button
+                    onClick={() => {
+                      setLightboxImage(null)
+                      setLightboxPrompt(null)
+                      setShowGallery(true)
+                    }}
+                    className="px-4 py-2 rounded-lg bg-cyan-500/30 hover:bg-cyan-500/40 text-white transition-colors flex items-center gap-2 cursor-pointer"
+                  >
+                    🖼️ Gallery ({galleryImages.length})
+                  </button>
+                )}
+                
+                {/* Close */}
+                <button
+                  onClick={() => { setLightboxImage(null); setLightboxPrompt(null); }}
+                  className="px-4 py-2 rounded-lg bg-white/20 hover:bg-white/30 text-white transition-colors cursor-pointer"
+                >
+                  ✕ Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Image Gallery Modal */}
+      {showGallery && (
+        <div 
+          className="fixed inset-0 z-[9998] bg-black/90 backdrop-blur-sm flex items-center justify-center p-4 overflow-auto"
+          style={{ cursor: 'auto' }}
+          onClick={() => setShowGallery(false)}
+        >
+          {/* Close Button */}
+          <button
+            onClick={() => setShowGallery(false)}
+            className="absolute top-4 right-4 p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors cursor-pointer z-10"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+          
+          {/* Gallery Container */}
+          <div 
+            className="max-w-5xl w-full max-h-[90vh] overflow-auto"
+            style={{ cursor: 'auto' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="text-white text-xl font-bold text-center mb-6">
+              🖼️ Image Gallery ({galleryImages.length} images)
+            </h2>
+            
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 p-4">
+              {galleryImages.map((item, index) => (
+                <div 
+                  key={index}
+                  className="relative group cursor-pointer"
+                  onClick={() => {
+                    setShowGallery(false)
+                    openLightbox(item.image, item.prompt)
+                  }}
+                >
+                  <img
+                    src={item.image}
+                    alt={`Generated ${index + 1}`}
+                    className="w-full h-48 object-cover rounded-lg border border-white/10 hover:border-violet-500/50 transition-all hover:scale-105"
+                  />
+                  <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center">
+                    <span className="text-white text-sm">🔍 View</span>
+                  </div>
+                  <p className="text-white/50 text-xs mt-1 truncate px-1">
+                    {item.prompt}
+                  </p>
+                </div>
+              ))}
+            </div>
+            
+            {/* Close */}
+            <div className="text-center mt-4">
+              <button
+                onClick={() => setShowGallery(false)}
+                className="px-6 py-2 rounded-lg bg-white/20 hover:bg-white/30 text-white transition-colors cursor-pointer"
+              >
+                ✕ Close Gallery
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   )
 }

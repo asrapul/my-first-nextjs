@@ -2,36 +2,12 @@
 
 import Image from "next/image";
 import { useTheme } from "@/components/ThemeProvider";
-import { useState, useEffect, useRef } from "react";
+import { useState } from "react";
 
 export default function Home() {
   const { theme, toggleTheme } = useTheme();
   const isDark = theme === 'dark';
   const [isPhotoHovered, setIsPhotoHovered] = useState(false);
-  const cursorRef = useRef<HTMLDivElement>(null);
-  const [cursorPos, setCursorPos] = useState({ x: 0, y: 0 });
-  const [isVisible, setIsVisible] = useState(false);
-
-  // Custom cursor effect
-  useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
-      setCursorPos({ x: e.clientX, y: e.clientY });
-      setIsVisible(true);
-    };
-
-    const handleMouseLeave = () => setIsVisible(false);
-    const handleMouseEnter = () => setIsVisible(true);
-
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseleave', handleMouseLeave);
-    document.addEventListener('mouseenter', handleMouseEnter);
-
-    return () => {
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseleave', handleMouseLeave);
-      document.removeEventListener('mouseenter', handleMouseEnter);
-    };
-  }, []);
 
   return (
     <div className={`min-h-screen font-sans overflow-hidden relative transition-colors duration-500 ${
@@ -40,70 +16,8 @@ export default function Home() {
         : 'bg-gradient-to-br from-slate-50 via-white to-violet-50 text-gray-900'
     }`}>
       
-      {/* Custom SVG Cursor */}
-      <div
-        ref={cursorRef}
-        className={`fixed pointer-events-none z-[9999] transition-opacity duration-200 hidden md:block ${
-          isVisible ? 'opacity-100' : 'opacity-0'
-        }`}
-        style={{
-          left: cursorPos.x,
-          top: cursorPos.y,
-          transform: 'translate(-4px, -4px)',
-        }}
-      >
-        {/* Main Cursor SVG - Purple Arrow */}
-        <svg
-          width="32"
-          height="32"
-          viewBox="0 0 32 32"
-          fill="none"
-          xmlns="http://www.w3.org/2000/svg"
-          className="drop-shadow-lg"
-        >
-          <defs>
-            <linearGradient id="cursorGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor="#c084fc" />
-              <stop offset="50%" stopColor="#a855f7" />
-              <stop offset="100%" stopColor="#9333ea" />
-            </linearGradient>
-            <filter id="cursorGlow" x="-50%" y="-50%" width="200%" height="200%">
-              <feGaussianBlur stdDeviation="2" result="blur" />
-              <feMerge>
-                <feMergeNode in="blur" />
-                <feMergeNode in="SourceGraphic" />
-              </feMerge>
-            </filter>
-          </defs>
-          <path
-            d="M4 4L4 24L10 18L16 28L20 26L14 16L22 16L4 4Z"
-            fill="url(#cursorGradient)"
-            stroke="white"
-            strokeWidth="1.5"
-            strokeLinejoin="round"
-            filter="url(#cursorGlow)"
-          />
-        </svg>
-        
-        {/* Blur Trail Effect */}
-        <div 
-          className="absolute -inset-4 rounded-full opacity-30 blur-xl"
-          style={{
-            background: 'radial-gradient(circle, rgba(168, 85, 247, 0.4) 0%, transparent 70%)',
-            animation: 'pulse 2s ease-in-out infinite',
-          }}
-        />
-      </div>
-      
-      {/* Cursor Styles */}
+      {/* Animation Keyframes */}
       <style jsx global>{`
-        @media (min-width: 768px) {
-          * { cursor: none !important; }
-        }
-        @keyframes pulse {
-          0%, 100% { transform: scale(1); opacity: 0.3; }
-          50% { transform: scale(1.2); opacity: 0.5; }
-        }
         @keyframes float1 {
           0%, 100% { transform: translate(0, 0) scale(1); }
           25% { transform: translate(50px, -30px) scale(1.1); }

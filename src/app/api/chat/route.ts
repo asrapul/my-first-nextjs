@@ -1,5 +1,6 @@
-import { GoogleGenAI } from '@google/genai'
+import { GoogleGenAI, Type } from '@google/genai'
 import { NextRequest, NextResponse } from 'next/server'
+import { generateImage } from '@/lib/image-generator'
 
 // Language configurations
 const languageInstructions: Record<string, string> = {
@@ -125,6 +126,12 @@ KONTAK & MEDIA SOSIAL:
 - LinkedIn: https://www.linkedin.com/in/andi-asyraful-amal-ilham-8b09b730a/
 - Email: asyrafulamal06@gmail.com
 
+PENTING - KEMAMPUAN GENERATE GAMBAR:
+Kamu memiliki kemampuan untuk MEMBUAT GAMBAR menggunakan AI!
+- Jika user meminta kamu membuat/generate/buat/gambarkan sesuatu, gunakan tool generate_image
+- Jelaskan dulu apa yang akan kamu buat, lalu gunakan tool
+- Contoh respons: "Baik, saya akan membuatkan gambar [deskripsi] untuk kamu! 🎨"
+
 Cara kamu menjawab:
 - Jawab dengan singkat dan jelas (maksimal 2-3 paragraf)
 - Kalau ditanya tentang hal teknis, jelaskan dengan sederhana
@@ -137,6 +144,26 @@ Kamu TIDAK boleh:
 - Menjawab pertanyaan yang tidak pantas
 - Berpura-pura menjadi orang lain
 - Memberikan informasi pribadi yang sensitif (seperti alamat rumah, nomor HP, dll)`
+
+// Definisi Tool untuk generate gambar
+const imageGenerationTool = {
+  functionDeclarations: [
+    {
+      name: 'generate_image',
+      description: 'Generate gambar berdasarkan deskripsi dari user. Gunakan tool ini ketika user meminta untuk membuat, generate, buat, atau menggambar sesuatu.',
+      parameters: {
+        type: Type.OBJECT,
+        properties: {
+          prompt: {
+            type: Type.STRING,
+            description: 'Deskripsi detail gambar yang ingin dibuat dalam bahasa Inggris. Contoh: "a cute orange cat wearing a small blue hat, digital art style"',
+          },
+        },
+        required: ['prompt'],
+      },
+    },
+  ],
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -167,43 +194,79 @@ export async function POST(request: NextRequest) {
     // Get language instruction
     const langInstruction = languageInstructions[language] || languageInstructions['id']
 
-    // Buat conversation history untuk context
-    const conversationHistory = history?.map((msg: { role: string; content: string }) => 
-      `${msg.role === 'user' ? 'User' : 'Asrap Bot'}: ${msg.content}`
-    ).join('\n') || ''
-
-    // Combine system prompt dengan user message
-    const fullPrompt = `${SYSTEM_PROMPT}
-
-LANGUAGE INSTRUCTION: ${langInstruction}
-
----
-
-${conversationHistory ? `Previous conversation:\n${conversationHistory}\n\n` : ''}User: ${message}
-
-Asrap Bot:`
+    // Build conversation history untuk format baru
+    const conversationHistory = history?.map((msg: { role: string; content: string }) => ({
+      role: msg.role === 'user' ? 'user' : 'model',
+      parts: [{ text: msg.content }],
+    })) || []
 
     console.log('Calling Gemini API with language:', language)
 
-    // Generate response dari Gemini
+    // Generate response dengan tools
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
-      contents: fullPrompt,
+      contents: [
+        { role: 'user', parts: [{ text: `${SYSTEM_PROMPT}\n\nLANGUAGE INSTRUCTION: ${langInstruction}` }] },
+        { role: 'model', parts: [{ text: 'Baik, saya mengerti! Saya Asrap Bot, siap membantu. 😊' }] },
+        ...conversationHistory,
+        { role: 'user', parts: [{ text: message }] },
+      ],
+      config: {
+        tools: [imageGenerationTool],
+      },
     })
 
-    // Ambil text response
-    const aiResponse = response.text
+    // Cek apakah AI mau pakai tool
+    const functionCalls = response.functionCalls
 
-    if (!aiResponse) {
+    if (functionCalls && functionCalls.length > 0) {
+      const functionCall = functionCalls[0]
+
+      if (functionCall.name === 'generate_image') {
+        const imagePrompt = functionCall.args?.prompt as string
+
+        console.log('AI wants to generate image with prompt:', imagePrompt)
+
+        try {
+          // Generate gambar
+          const imageData = await generateImage(imagePrompt)
+
+          if (imageData) {
+            return NextResponse.json({
+              success: true,
+              message: `Ini dia gambar yang kamu minta! 🎨`,
+              image: imageData,
+              imagePrompt: imagePrompt,
+            })
+          } else {
+            return NextResponse.json({
+              success: true,
+              message: 'Maaf, saya tidak bisa membuat gambar saat ini. Coba lagi ya! 😅',
+            })
+          }
+        } catch (error) {
+          console.error('Image generation failed:', error)
+          return NextResponse.json({
+            success: true,
+            message: 'Maaf, terjadi kesalahan saat membuat gambar. Coba lagi nanti ya! 🙏',
+          })
+        }
+      }
+    }
+
+    // Response text biasa (tanpa tool call)
+    const textResponse = response.text
+
+    if (!textResponse) {
       throw new Error('Empty response from AI')
     }
 
-    console.log('Got response from Gemini:', aiResponse.substring(0, 100) + '...')
+    console.log('Got response from Gemini:', textResponse.substring(0, 100) + '...')
 
     // Return response
     return NextResponse.json({
       success: true,
-      message: aiResponse,
+      message: textResponse,
     })
 
   } catch (error) {
