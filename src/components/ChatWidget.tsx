@@ -1338,6 +1338,7 @@ Dan contoh gambar (placeholder):`,
       {/* Floating Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
+        aria-label={isOpen ? "Close chat" : "Open chat with Asrap Bot"}
         className={`fixed z-50 bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white shadow-lg shadow-violet-500/30 hover:scale-110 hover:shadow-xl hover:shadow-violet-500/40 transition-all flex items-center justify-center
           bottom-4 right-4 w-12 h-12 rounded-xl
           sm:bottom-6 sm:right-4 sm:w-14 sm:h-14 sm:rounded-2xl
