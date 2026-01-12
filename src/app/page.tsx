@@ -192,7 +192,7 @@ export default function Home() {
                 } ${isPhotoHovered ? 'scale-[1.02]' : ''}`}>
                   <Image
                     src="/Image/profile_picture.png"
-                    alt="Andi Asyraful"
+                    alt="Profile photo of Andi Asyraful, Web Developer and Software Engineer from SMK Telkom Makassar"
                     fill
                     className={`object-cover transition-all duration-700 ease-out ${
                       isPhotoHovered 
@@ -264,6 +264,7 @@ export default function Home() {
                     href="https://github.com/asrapul"
                     target="_blank"
                     rel="noopener noreferrer"
+                    aria-label="Visit Andi Asyraful's GitHub profile"
                     className={`group p-3 rounded-xl transition-all ${
                       isDark 
                         ? 'bg-white/5 border border-white/10 hover:bg-white/10 hover:border-violet-500/50' 
@@ -279,6 +280,7 @@ export default function Home() {
                     href="https://www.linkedin.com/in/andi-asyraful-amal-ilham-8b09b730a/"
                     target="_blank"
                     rel="noopener noreferrer"
+                    aria-label="Connect with Andi Asyraful on LinkedIn"
                     className={`group p-3 rounded-xl transition-all ${
                       isDark 
                         ? 'bg-white/5 border border-white/10 hover:bg-white/10 hover:border-cyan-500/50' 
@@ -292,6 +294,7 @@ export default function Home() {
                   
                   <a
                     href="mailto:lenovotk3t@outlook.com"
+                    aria-label="Send email to Andi Asyraful"
                     className={`group p-3 rounded-xl transition-all ${
                       isDark 
                         ? 'bg-white/5 border border-white/10 hover:bg-white/10 hover:border-fuchsia-500/50' 
@@ -307,6 +310,7 @@ export default function Home() {
                     href="https://www.instagram.com/asrapulamal"
                     target="_blank"
                     rel="noopener noreferrer"
+                    aria-label="Follow Andi Asyraful on Instagram"
                     className={`group p-3 rounded-xl transition-all ${
                       isDark 
                         ? 'bg-white/5 border border-white/10 hover:bg-white/10 hover:border-pink-500/50' 
