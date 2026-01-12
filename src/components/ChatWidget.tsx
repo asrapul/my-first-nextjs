@@ -4,8 +4,19 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { useTheme } from './ThemeProvider'
 import ReactMarkdown from 'react-markdown'
 import Image from 'next/image'
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
+import dynamic from 'next/dynamic'
 import { oneDark, oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism'
+
+// Lazy load SyntaxHighlighter for better performance
+const SyntaxHighlighter = dynamic(
+  () => import('react-syntax-highlighter').then((mod) => mod.Prism),
+  { 
+    ssr: false,
+    loading: () => (
+      <div className="animate-pulse bg-gray-200 dark:bg-gray-700 rounded-lg h-20 my-2" />
+    )
+  }
+)
 
 interface Message {
   id: number
