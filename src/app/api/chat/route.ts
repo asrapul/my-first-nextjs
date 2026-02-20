@@ -229,7 +229,7 @@ You: [Calls update_doc_by_line(start_line=1, end_line=1, new_content="Hello Worl
       
       // Execute the function
       const executionResult = executeFunctionCall(
-        functionCall.name,
+        functionCall.name!,
         functionCall.args,
         (documentContent || '') as string
       )
@@ -240,7 +240,7 @@ You: [Calls update_doc_by_line(start_line=1, end_line=1, new_content="Hello Worl
             role: 'assistant',
             content: `❌ Error: ${executionResult.error}`,
             functionCall: {
-              name: functionCall.name,
+              name: functionCall.name!,
               args: functionCall.args,
               result: executionResult
             }
@@ -295,7 +295,7 @@ The document has been updated successfully. Confirm the change to the user.`
           role: 'assistant',
           content: response.text || '✅ Document updated!',
           functionCall: {
-            name: functionCall.name,
+            name: functionCall.name!,
             args: functionCall.args,
             result: executionResult
           }
