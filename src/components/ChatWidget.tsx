@@ -5,6 +5,7 @@ import { useTheme } from './ThemeProvider'
 import ReactMarkdown from 'react-markdown'
 import Image from 'next/image'
 import dynamic from 'next/dynamic'
+import { usePathname } from 'next/navigation'
 import { oneDark, oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism'
 
 // Lazy load SyntaxHighlighter for better performance
@@ -83,6 +84,9 @@ export default function ChatWidget() {
   const [language, setLanguage] = useState<Language>('id')
   const [showMenu, setShowMenu] = useState(false)
   const [showLangMenu, setShowLangMenu] = useState(false)
+  const pathname = usePathname()
+
+  if (pathname === '/ai-editor') return null
   const [copiedId, setCopiedId] = useState<number | null>(null)
   const [isHydrated, setIsHydrated] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')

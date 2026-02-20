@@ -1,36 +1,65 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# AI Document Editor with Gemini & Supabase
 
-## Getting Started
+A premium, AI-powered document editor that allows real-time document manipulation using Google Gemini. Features a two-panel layout with a glassmorphism aesthetic, support for multimodal input (OCR), and seamless Supabase integration for authentication and real-time data syncing.
 
-First, run the development server:
+## ✨ Key Features
+
+-   **🤖 AI-Powered Editing**: Directly manipulate your document using natural language via Gemini 2.5 Flash.
+-   **🖼️ Multimodal Support (OCR)**: Upload images containing text, and the AI will extract and insert the content directly into your editor.
+-   **🔄 Intelligent Command Execution**: Support for complex commands like `update_doc_by_line`, `insert_at_line`, `append_to_document`, and `delete_lines`.
+-   **🔐 Supabase Authentication**: Secure login using Email or Magic Links.
+-   **💾 Auto-Save & Real-time Sync**: Your documents are automatically saved to Supabase and synced across sessions.
+-   **🎨 Premium UI**: Dark/Neon theme with glassmorphism, animated backgrounds, and smooth transitions.
+-   **📤 Export Support**: Download your documents as `.txt` files in a single click.
+
+## 🚀 Getting Started
+
+### 1. Prerequisites
+
+-   Node.js 18+ and npm
+-   A Supabase project
+-   A Google Gemini API Key
+
+### 2. Environment Variables
+
+Create a `.env.local` file in the root directory and add the following:
+
+```env
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+GEMINI_API_KEY=your_gemini_api_key
+```
+
+### 3. Installation
+
+```bash
+git clone <your-repo-url>
+cd my-first-nextjs
+npm install
+```
+
+### 4. Database Setup
+
+Ensure your Supabase database has a `documents` table with the following schema:
+- `id`: UUID (Primary Key)
+- `content`: Text
+- `user_id`: UUID (References auth.users)
+- `created_at`: Timestamp
+- `updated_at`: Timestamp
+
+### 5. Run Development Server
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 🛠️ Built With
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+-   [Next.js](https://nextjs.org/) - Framework
+-   [Supabase](https://supabase.com/) - Backend & Auth
+-   [Google Gemini](https://ai.google.dev/) - AI Engine
+-   [Tailwind CSS](https://tailwindcss.com/) - Styling
+-   [Lucide React](https://lucide.dev/) - Icons
 
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.

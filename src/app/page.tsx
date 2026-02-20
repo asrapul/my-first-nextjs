@@ -16,35 +16,7 @@ export default function Home() {
         : 'bg-gradient-to-br from-slate-50 via-white to-violet-50 text-gray-900'
     }`}>
       
-      {/* Animation Keyframes */}
-      <style jsx global>{`
-        @keyframes float1 {
-          0%, 100% { transform: translate(0, 0) scale(1); }
-          25% { transform: translate(50px, -30px) scale(1.1); }
-          50% { transform: translate(100px, 20px) scale(0.9); }
-          75% { transform: translate(30px, 50px) scale(1.05); }
-        }
-        @keyframes float2 {
-          0%, 100% { transform: translate(0, 0) scale(1); }
-          33% { transform: translate(-60px, 40px) scale(1.15); }
-          66% { transform: translate(40px, -50px) scale(0.85); }
-        }
-        @keyframes float3 {
-          0%, 100% { transform: translate(0, 0) rotate(0deg) scale(1); }
-          50% { transform: translate(-80px, 60px) rotate(180deg) scale(1.2); }
-        }
-        @keyframes breathe {
-          0%, 100% { transform: scale(1); opacity: 0.3; }
-          50% { transform: scale(1.3); opacity: 0.5; }
-        }
-        @keyframes drift {
-          0% { transform: translateX(0) translateY(0); }
-          25% { transform: translateX(30px) translateY(-20px); }
-          50% { transform: translateX(60px) translateY(10px); }
-          75% { transform: translateX(20px) translateY(30px); }
-          100% { transform: translateX(0) translateY(0); }
-        }
-      `}</style>
+      {/* Animation Keyframes moved to globals.css */}
 
       {/* Enhanced Animated Background with Floating Blur Circles */}
       <div className="absolute inset-0 overflow-hidden">
@@ -233,6 +205,22 @@ export default function Home() {
                   <p className={`text-lg mt-2 ${isDark ? 'text-white/60' : 'text-gray-500'}`}>
                     SMK Telkom Makassar • Rekayasa Perangkat Lunak
                   </p>
+                </div>
+
+                <div className="mt-8 mb-8">
+                  <a 
+                    href="/ai-editor"
+                    className={`inline-flex items-center gap-2 px-6 py-3 rounded-xl font-bold transition-all transform hover:scale-105 ${
+                      isDark 
+                        ? 'bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white shadow-lg shadow-violet-500/25 hover:shadow-violet-500/40' 
+                        : 'bg-gradient-to-r from-violet-500 to-fuchsia-500 text-white shadow-lg shadow-violet-500/20 hover:shadow-violet-500/30'
+                    }`}
+                  >
+                    <span>✨ Try AI Editor</span>
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                    </svg>
+                  </a>
                 </div>
 
                 <p className={`leading-relaxed max-w-lg ${isDark ? 'text-white/70' : 'text-gray-600'}`}>

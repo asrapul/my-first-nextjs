@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/ThemeProvider";
+import { AuthProvider } from "@/components/AuthProvider";
 import ChatWidget from "@/components/ChatWidget";
 import StructuredData from "@/components/StructuredData";
 
@@ -78,10 +79,12 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <ThemeProvider>
-          {children}
-          <ChatWidget />
-        </ThemeProvider>
+        <AuthProvider>
+          <ThemeProvider>
+            {children}
+            <ChatWidget />
+          </ThemeProvider>
+        </AuthProvider>
       </body>
     </html>
   );
