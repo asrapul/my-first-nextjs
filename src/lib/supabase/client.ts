@@ -1,3 +1,5 @@
+'use client'
+
 import { createClient, SupabaseClient } from '@supabase/supabase-js'
 
 // We wrap the Supabase client in a Proxy to allow for lazy initialization.
@@ -12,13 +14,17 @@ const getClient = () => {
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
   if (!supabaseUrl || !supabaseAnonKey) {
-    // During build time, if vars are missing, we return a dummy client or throw a late error
-    // but we don't crash the build process itself.
+    // During build time, if vars are missing, we return a dummy client to satisfy types
     if (typeof window === 'undefined') {
-        // Return a dummy client shape to satisfy types during build
         return {} as SupabaseClient
     }
-    throw new Error('Supabase environment variables are missing. Please check your Vercel settings.')
+    
+    const missing = []
+    if (!supabaseUrl) missing.push('NEXT_PUBLIC_SUPABASE_URL')
+    if (!supabaseAnonKey) missing.push('NEXT_PUBLIC_SUPABASE_ANON_KEY')
+    
+    console.error(`Supabase configuration missing: ${missing.join(', ')}`)
+    throw new Error(`Supabase environment variables are missing: ${missing.join(', ')}. Please ensure they are added to your Vercel Project Settings and that you HAVE REDEPLOYED.`)
   }
 
   clientInstance = createClient(supabaseUrl, supabaseAnonKey, {
