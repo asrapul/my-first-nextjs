@@ -18,7 +18,7 @@ const geistMono = Geist_Mono({
   display: "swap",
 });
 
-const siteUrl = "https://andiasyraful.vercel.app";
+const siteUrl = "https://asrapul-nextjs.vercel.app";
 
 export const metadata: Metadata = {
   title: "Andi Asyraful - Web Developer Portfolio",
