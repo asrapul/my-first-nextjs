@@ -5,6 +5,22 @@ import { executeFunctionCall } from '@/lib/execute-function'
 
 const genai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! })
 
+interface ChatMessage {
+  role: 'user' | 'assistant'
+  content: string
+}
+
+interface FileAttachment {
+  data: string
+  type: string
+  name: string
+}
+
+interface ContentPart {
+  text?: string
+  inlineData?: { mimeType: string; data: string }
+}
+
 // Helper: Format document with line numbers for AI
 function formatDocumentForAI(content: string): string {
   const lines = content.split('\n')
@@ -13,7 +29,11 @@ function formatDocumentForAI(content: string): string {
 
 export async function POST(request: NextRequest) {
   try {
-    const { messages, documentContent, file } = await request.json()
+    const { messages, documentContent, file } = await request.json() as {
+      messages: ChatMessage[]
+      documentContent: string
+      file?: FileAttachment
+    }
     
     // CRITICAL: Always give AI the current document state with line numbers
     const documentWithLines = formatDocumentForAI(documentContent)
@@ -42,7 +62,7 @@ You: [Calls update_doc_by_line(start_line=1, end_line=1, new_content="Hello Worl
 
     // Prepare content parts for Gemini
     const userMessage = messages[messages.length - 1]
-    const contentParts: any[] = []
+    const contentParts: ContentPart[] = []
     
     // Add file if present (multimodal support)
     if (file) {
@@ -61,13 +81,12 @@ You: [Calls update_doc_by_line(start_line=1, end_line=1, new_content="Hello Worl
     contentParts.push({ text: userMessage.content })
 
     // First call with function tools
-    // @ts-ignore
     let response = await genai.models.generateContent({
       model: 'gemini-2.5-flash',
       contents: [
         { role: 'user', parts: [{ text: systemPrompt }] },
-        ...messages.slice(-11, -1).map((m: any) => ({
-          role: m.role === 'user' ? 'user' : 'model',
+        ...messages.slice(-11, -1).map((m: ChatMessage) => ({
+          role: m.role === 'user' ? 'user' as const : 'model' as const,
           parts: [{ text: m.content }]
         })),
         {
@@ -75,8 +94,10 @@ You: [Calls update_doc_by_line(start_line=1, end_line=1, new_content="Hello Worl
           parts: contentParts
         }
       ],
-      tools: functionTools
-    } as any)
+      config: {
+        tools: functionTools
+      }
+    })
     
     // Check if AI wants to call a function (Native Tool Call)
     let functionCall = response.functionCalls?.[0]
@@ -86,25 +107,23 @@ You: [Calls update_doc_by_line(start_line=1, end_line=1, new_content="Hello Worl
         const text = response.text.trim()
         
         // Regex to match function calls like: function_name("arg1") or [calls function_name(key="value")]
-        // matches: word(anything) OR [calls word(anything)]
         const jsonLikeMatch = text.match(/(?:\[calls\s+)?(\w+)\s*\(([\s\S]*?)\)(?:\])?/)
         
         if (jsonLikeMatch) {
             let name = jsonLikeMatch[1]
-            let argsString = jsonLikeMatch[2]
+            const argsString = jsonLikeMatch[2]
             
             // Try to parse arguments
             try {
-                let args: any = {}
+                let args: Record<string, unknown> = {}
                 
                 // Case 1: JSON Object function({ ... })
                 if (argsString.trim().startsWith('{') && argsString.trim().endsWith('}')) {
-                    args = JSON.parse(argsString)
+                    args = JSON.parse(argsString) as Record<string, unknown>
                 } 
-                // Case 2: Specific handling for text-based text updates (e.g. append_to_document("..."))
+                // Case 2: Specific handling for text-based text updates
                 else {
                      // Check for multiple append_to_document calls (common hallucination)
-                     // e.g. append_to_document("Line 1")\nappend_to_document("Line 2")
                      const multipleAppends = text.matchAll(/append_to_document\s*\(\s*"([\s\S]*?)"\s*\)/g)
                      const appendMatches = Array.from(multipleAppends)
                      
@@ -124,7 +143,6 @@ You: [Calls update_doc_by_line(start_line=1, end_line=1, new_content="Hello Worl
                      else if (name === 'update_doc_by_line') {
                         const startLineMatch = argsString.match(/start_line\s*=\s*(\d+)/) || argsString.match(/^(\d+),/)
                         const endLineMatch = argsString.match(/end_line\s*=\s*(\d+)/) || argsString.match(/,\s*(\d+),/)
-                        // Match content in quotes, handling potential escaped quotes
                         const contentMatch = argsString.match(/new_content\s*=\s*(["'])([\s\S]*?)\1/) || argsString.match(/,\s*(["'])([\s\S]*?)\1$/)
 
                         if (startLineMatch && endLineMatch && contentMatch) {
@@ -166,22 +184,14 @@ You: [Calls update_doc_by_line(start_line=1, end_line=1, new_content="Hello Worl
                         }
                      }
 
-                     // Single call parsing (fallback for simple positional args)
-                     // ... (existing logic for simple positional args could go here or be merged, 
-                     // but the regex updates above handle the kwargs cases the user is hitting)
-                     
                      // Keep existing fallback for basic string args if the above didn't match
                      if (Object.keys(args).length === 0 && (name === 'append_to_document' || name === 'insert_at_line' || name === 'replace_line')) {
-                         // Naive string unescaping if it's just a single string arg wrapped in quotes
-                         // For replace_line: 1, "content"
                          const firstQuote = argsString.indexOf('"')
                          const lastQuote = argsString.lastIndexOf('"')
                          
                          if (firstQuote !== -1 && lastQuote > firstQuote) {
-                             // Extract the content inside quotes
                              let contentStr = argsString.substring(firstQuote + 1, lastQuote)
                              
-                             // Handle basic unescaping of newlines/quotes usually done by JSON stringify
                              contentStr = contentStr
                                 .replace(/\\n/g, '\n')
                                 .replace(/\\"/g, '"')
@@ -190,18 +200,15 @@ You: [Calls update_doc_by_line(start_line=1, end_line=1, new_content="Hello Worl
                              if (name === 'append_to_document') {
                                  args = { content: contentStr }
                              } else if (name === 'insert_at_line') {
-                                 // 1, "content"
                                  const parts = argsString.substring(0, firstQuote).split(',')
                                  const lineNumber = parseInt(parts[0].trim())
                                  if (!isNaN(lineNumber)) {
                                      args = { line_number: lineNumber, content: contentStr }
                                  }
                              } else if (name === 'replace_line') {
-                                 // 1, "content"
                                  const parts = argsString.substring(0, firstQuote).split(',')
                                  const lineNumber = parseInt(parts[0].trim())
                                  if (!isNaN(lineNumber)) {
-                                     // Map "replace_line" to the actual function "update_doc_by_line"
                                      name = 'update_doc_by_line'
                                      args = { 
                                          start_line: lineNumber, 
@@ -230,7 +237,7 @@ You: [Calls update_doc_by_line(start_line=1, end_line=1, new_content="Hello Worl
       // Execute the function
       const executionResult = executeFunctionCall(
         functionCall.name!,
-        functionCall.args,
+        functionCall.args as Record<string, unknown>,
         (documentContent || '') as string
       )
       
@@ -261,18 +268,17 @@ ${newDocumentWithLines}
 
 The document has been updated successfully. Confirm the change to the user.`
 
-      // @ts-ignore
       response = await genai.models.generateContent({
         model: 'gemini-2.5-flash',
         contents: [
             // History (limited to last 10 messages to save tokens)
             { role: 'user', parts: [{ text: systemPrompt }] },
-            ...messages.slice(-11, -1).map((m: any) => ({
-              role: m.role === 'user' ? 'user' : 'model',
+            ...messages.slice(-11, -1).map((m: ChatMessage) => ({
+              role: m.role === 'user' ? 'user' as const : 'model' as const,
               parts: [{ text: m.content }]
             })),
             { role: 'user', parts: contentParts },
-            // Function call exchange (Polymorphic: Handle native vs parsed)
+            // Function call exchange
             { role: 'model', parts: [{ functionCall: functionCall }] }, 
             { 
                 role: 'function', 
@@ -288,7 +294,7 @@ The document has been updated successfully. Confirm the change to the user.`
             },
             { role: 'user', parts: [{ text: finalSystemPrompt }] }
         ]
-      } as any)
+      })
       
       return NextResponse.json({
         message: {
@@ -311,15 +317,17 @@ The document has been updated successfully. Confirm the change to the user.`
         content: response.text || 'No response'
       }
     })
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('API error:', error)
     
-    // Extract status code (Gemini sometimes uses 'status' or 'code')
-    const status = error.status || error.code || 500
+    // Extract status code safely
+    const statusObj = error as { status?: number; code?: number; message?: string }
+    const status = statusObj.status || statusObj.code || 500
     const statusCode = (typeof status === 'number' && status >= 100 && status < 600) ? status : 500
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
     
     return NextResponse.json(
-      { error: 'Failed to process request', details: error.message },
+      { error: 'Failed to process request', details: errorMessage },
       { status: statusCode }
     )
   }

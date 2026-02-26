@@ -86,7 +86,6 @@ export default function ChatWidget() {
   const [showLangMenu, setShowLangMenu] = useState(false)
   const pathname = usePathname()
 
-  if (pathname === '/ai-editor') return null
   const [copiedId, setCopiedId] = useState<number | null>(null)
   const [isHydrated, setIsHydrated] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
@@ -532,11 +531,11 @@ Dan contoh gambar (placeholder):`,
       }
       setMessages((prev) => [...prev, botMsg])
       playNotificationSound()
-    } catch (error: any) {
+    } catch (error) {
       console.error('Chat error:', error)
       const errorMsg: Message = {
         id: Date.now() + 1,
-        text: error.message || 'Maaf, terjadi kesalahan. Coba lagi ya! 😅',
+        text: error instanceof Error ? error.message : 'Maaf, terjadi kesalahan. Coba lagi ya! 😅',
         sender: 'bot',
         timestamp: new Date(),
       }
@@ -601,6 +600,7 @@ Dan contoh gambar (placeholder):`,
   }
 
   if (!isHydrated) return null
+  if (pathname === '/ai-editor') return null
 
   return (
     <>
@@ -904,6 +904,7 @@ Dan contoh gambar (placeholder):`,
                         {/* User uploaded image */}
                         {msg.userImage && (
                           <div className="mb-2">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
                             <img 
                               src={msg.userImage} 
                               alt="Uploaded"
@@ -920,6 +921,7 @@ Dan contoh gambar (placeholder):`,
                       <div className="mt-3 space-y-2">
                         {/* Image with Click to Zoom */}
                         <div className="relative group/img">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img
                             src={msg.image}
                             alt="AI Generated"
@@ -1254,6 +1256,7 @@ Dan contoh gambar (placeholder):`,
             {/* Image Preview */}
             {selectedImage && (
               <div className="mb-2 relative inline-block">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img 
                   src={selectedImage} 
                   alt="Selected" 
@@ -1389,6 +1392,7 @@ Dan contoh gambar (placeholder):`,
               </div>
             )}
             
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={lightboxImage}
               alt="AI Generated - Fullscreen"
@@ -1516,6 +1520,7 @@ Dan contoh gambar (placeholder):`,
                     openLightbox(item.image, item.prompt)
                   }}
                 >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={item.image}
                     alt={`Generated ${index + 1}`}

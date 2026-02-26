@@ -1,14 +1,22 @@
+interface FunctionResult {
+  success: boolean
+  newContent?: string
+  error?: string
+}
+
 export function executeFunctionCall(
   functionName: string,
-  args: any,
+  args: Record<string, unknown>,
   currentContent: string
-): { success: boolean; newContent?: string; error?: string } {
+): FunctionResult {
   try {
     const lines = currentContent.split('\n')
     
     switch (functionName) {
       case 'update_doc_by_line': {
-        const { start_line, end_line, new_content } = args
+        const start_line = args.start_line as number
+        const end_line = args.end_line as number
+        const new_content = args.new_content as string
         
         // Validate line numbers
         if (start_line < 1 || end_line > lines.length || start_line > end_line) {
@@ -29,7 +37,9 @@ export function executeFunctionCall(
       }
       
       case 'update_doc_by_replace': {
-        const { old_string, new_string, occurrence } = args
+        const old_string = args.old_string as string
+        const new_string = args.new_string as string
+        const occurrence = args.occurrence as string
         
         if (!currentContent.includes(old_string)) {
           return { success: false, error: `Text "${old_string}" not found in document` }
@@ -51,7 +61,9 @@ export function executeFunctionCall(
       }
       
       case 'insert_at_line': {
-        const { line_number, content, position } = args
+        const line_number = args.line_number as number
+        const content = args.content as string
+        const position = args.position as string
         
         if (line_number < 1 || line_number > lines.length) {
           return { 
@@ -71,7 +83,8 @@ export function executeFunctionCall(
       }
       
       case 'delete_lines': {
-        const { start_line, end_line } = args
+        const start_line = args.start_line as number
+        const end_line = args.end_line as number
         
         if (start_line < 1 || end_line > lines.length || start_line > end_line) {
           return { 
@@ -89,13 +102,15 @@ export function executeFunctionCall(
       }
       
       case 'append_to_document': {
-        return { success: true, newContent: currentContent + '\n' + args.content }
+        const content = args.content as string
+        return { success: true, newContent: currentContent + '\n' + content }
       }
       
       default:
         return { success: false, error: `Unknown function: ${functionName}` }
     }
-  } catch (error: any) {
-    return { success: false, error: error.message }
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Unknown error occurred'
+    return { success: false, error: message }
   }
 }

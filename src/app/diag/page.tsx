@@ -6,6 +6,7 @@ export default function DiagPage() {
   const [vars, setVars] = useState<Record<string, string | undefined>>({})
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setVars({
       NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
       NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ? 'Present (Hidden for security)' : 'Missing',
@@ -27,7 +28,7 @@ export default function DiagPage() {
 
         <div className="mt-8 text-sm text-gray-500">
           <p>Note: NEXT_PUBLIC_ variables must be available in the browser.</p>
-          <p>If these are 'undefined', they were not correctly inlined during build-time.</p>
+          <p>If these are &apos;undefined&apos;, they were not correctly inlined during build-time.</p>
         </div>
         
         <button 

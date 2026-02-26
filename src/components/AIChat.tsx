@@ -8,7 +8,7 @@ import { useTheme } from './ThemeProvider'
 interface Message {
   role: 'user' | 'assistant'
   content: string
-  functionCall?: { name: string; args: any }
+  functionCall?: { name: string; args: Record<string, unknown> }
 }
 
 interface Props {
@@ -154,7 +154,7 @@ export default function AIChat({ documentContent, onDocumentUpdate }: Props) {
             </div>
             <p className={`text-lg font-medium ${isDark ? 'text-white' : 'text-gray-900'}`}>How can I help you today?</p>
             <p className={`text-sm mt-2 ${isDark ? 'text-white/40' : 'text-gray-500'}`}>
-              Try "Change line 1 to Hello World"
+              Try &quot;Change line 1 to Hello World&quot;
             </p>
           </div>
         )}

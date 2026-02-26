@@ -36,9 +36,9 @@ const getClient = () => {
 }
 
 export const supabase = new Proxy({} as SupabaseClient, {
-  get: (target, prop) => {
+  get: (_target, prop) => {
     const client = getClient()
-    return (client as any)[prop]
+    return Reflect.get(client, prop)
   },
 })
 
