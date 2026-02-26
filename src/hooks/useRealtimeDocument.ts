@@ -21,7 +21,7 @@ export function useRealtimeDocument(
     if (!documentId) return
 
     const channel = supabase
-      .channel(`document:${documentId}`)
+      .channel(`db-changes:${documentId}`)
       .on(
         'postgres_changes',
         {

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef, useCallback } from 'react'
 import { type Document } from '@/lib/documents'
 import { type Permission } from '@/lib/sharing'
 import { supabase } from '@/lib/supabase/client'
@@ -9,6 +9,11 @@ import DocumentEditor from '@/components/DocumentEditor'
 import AIChat from '@/components/AIChat'
 import { useAutoSave } from '@/hooks/useAutoSave'
 import { Panel, Group as PanelGroup, Separator as PanelResizeHandle } from 'react-resizable-panels'
+import { useCollaboration } from '@/hooks/useCollaboration'
+import { useThrottle } from '@/hooks/useThrottle'
+import { useDebouncedCallback } from '@/hooks/useDebouncedCallback'
+import { PresenceIndicator } from '@/components/PresenceIndicator'
+import { nanoid } from 'nanoid'
 
 interface SharedDocumentViewProps {
   document: Document
@@ -16,17 +21,65 @@ interface SharedDocumentViewProps {
   token: string
 }
 
-export function SharedDocumentView({ document, permission, token }: SharedDocumentViewProps) {
+// Generate a stable anonymous ID for non-logged-in viewers
+function getAnonId(): string {
+  if (typeof window === 'undefined') return 'anon'
+  let id = sessionStorage.getItem('collab-anon-id')
+  if (!id) {
+    id = `anon-${nanoid(6)}`
+    sessionStorage.setItem('collab-anon-id', id)
+  }
+  return id
+}
+
+export function SharedDocumentView({ document: doc, permission, token }: SharedDocumentViewProps) {
   const { user, loading } = useAuth()
   const isViewOnly = permission === 'view'
-  const [content, setContent] = useState(document.content)
+  const [content, setContent] = useState(doc.content)
   const [showLoginPrompt, setShowLoginPrompt] = useState(false)
+  const isReceivingRemoteChange = useRef(false)
 
   // Only auto-save if editing and logged in
   const saveStatus = useAutoSave(
-    (!isViewOnly && user) ? document.id : '',
+    (!isViewOnly && user) ? doc.id : '',
     content
   )
+
+  // Collaboration
+  const effectiveUserId = user?.id ?? getAnonId()
+  const effectiveDisplayName = user?.email?.split('@')[0] ?? 'Guest'
+
+  const handleRemoteContentChange = useCallback((newContent: string) => {
+    isReceivingRemoteChange.current = true
+    setContent(newContent)
+    setTimeout(() => { isReceivingRemoteChange.current = false }, 0)
+  }, [])
+
+  const {
+    collaborators,
+    typingUsers,
+    isConnected,
+    broadcastContentChange,
+    updateCursor,
+  } = useCollaboration({
+    documentId: doc.id,
+    userId: effectiveUserId,
+    displayName: effectiveDisplayName,
+    onContentChange: isViewOnly ? undefined : handleRemoteContentChange,
+  })
+
+  const throttledUpdateCursor = useThrottle(updateCursor, 100)
+  const debouncedBroadcast = useDebouncedCallback(
+    (c: string) => broadcastContentChange(c),
+    300
+  )
+
+  function handleContentChange(newContent: string) {
+    setContent(newContent)
+    if (!isReceivingRemoteChange.current) {
+      debouncedBroadcast(newContent)
+    }
+  }
 
   // If edit mode but not logged in, show login prompt
   if (!isViewOnly && !loading && !user) {
@@ -67,38 +120,47 @@ export function SharedDocumentView({ document, permission, token }: SharedDocume
   return (
     <div className="h-screen flex flex-col bg-[#0a0a0f] text-white">
       {/* Banner */}
-      <div className={`px-4 py-2.5 text-sm flex items-center justify-center gap-2 ${
+      <div className={`px-4 py-2.5 text-sm flex items-center justify-between ${
         isViewOnly
           ? 'bg-gray-800/80 text-gray-300 border-b border-white/5'
           : 'bg-blue-900/80 text-blue-200 border-b border-blue-500/20'
       }`}>
-        {isViewOnly ? (
-          <>
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-            </svg>
-            <span>Kamu sedang melihat dokumen &ldquo;<strong>{document.title}</strong>&rdquo; (hanya baca)</span>
-          </>
-        ) : (
-          <>
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-            </svg>
-            <span>Kamu sedang mengedit dokumen &ldquo;<strong>{document.title}</strong>&rdquo; yang dibagikan</span>
-            {user && (
-              <span className="flex items-center gap-1 ml-2 text-xs opacity-60">
-                <span className={`w-1.5 h-1.5 rounded-full ${
-                  saveStatus === 'saved' ? 'bg-emerald-500' :
-                  saveStatus === 'saving' ? 'bg-amber-500 animate-pulse' : 'bg-rose-500'
-                }`} />
-                {saveStatus === 'saved' && 'Saved'}
-                {saveStatus === 'saving' && 'Saving...'}
-                {saveStatus === 'unsaved' && 'Unsaved'}
-              </span>
-            )}
-          </>
-        )}
+        <div className="flex items-center gap-2">
+          {isViewOnly ? (
+            <>
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+              </svg>
+              <span>Kamu sedang melihat dokumen &ldquo;<strong>{doc.title}</strong>&rdquo; (hanya baca)</span>
+            </>
+          ) : (
+            <>
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+              </svg>
+              <span>Kamu sedang mengedit dokumen &ldquo;<strong>{doc.title}</strong>&rdquo; yang dibagikan</span>
+              {user && (
+                <span className="flex items-center gap-1 ml-2 text-xs opacity-60">
+                  <span className={`w-1.5 h-1.5 rounded-full ${
+                    saveStatus === 'saved' ? 'bg-emerald-500' :
+                    saveStatus === 'saving' ? 'bg-amber-500 animate-pulse' : 'bg-rose-500'
+                  }`} />
+                  {saveStatus === 'saved' && 'Saved'}
+                  {saveStatus === 'saving' && 'Saving...'}
+                  {saveStatus === 'unsaved' && 'Unsaved'}
+                </span>
+              )}
+            </>
+          )}
+        </div>
+
+        {/* Presence indicator */}
+        <PresenceIndicator
+          collaborators={collaborators}
+          isConnected={isConnected}
+          typingUsers={typingUsers}
+        />
       </div>
 
       {/* Content */}
@@ -107,7 +169,7 @@ export function SharedDocumentView({ document, permission, token }: SharedDocume
           // View-only: render content as styled read-only document
           <div className="h-full overflow-y-auto">
             <div className="max-w-4xl mx-auto p-8">
-              <h1 className="text-3xl font-bold text-white mb-6 pb-4 border-b border-white/10">{document.title}</h1>
+              <h1 className="text-3xl font-bold text-white mb-6 pb-4 border-b border-white/10">{doc.title}</h1>
               <pre className="whitespace-pre-wrap font-mono text-sm text-white/80 leading-relaxed">{content}</pre>
             </div>
           </div>
@@ -119,7 +181,9 @@ export function SharedDocumentView({ document, permission, token }: SharedDocume
                 <Panel defaultSize={60} minSize={30} className="flex flex-col">
                   <DocumentEditor
                     content={content}
-                    onChange={setContent}
+                    onChange={handleContentChange}
+                    collaborators={collaborators}
+                    onCursorMove={throttledUpdateCursor}
                   />
                 </Panel>
                 

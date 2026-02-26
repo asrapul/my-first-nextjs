@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { Panel, Group as PanelGroup, Separator as PanelResizeHandle } from 'react-resizable-panels'
 import { useTheme } from '@/components/ThemeProvider'
 import DocumentEditor from '@/components/DocumentEditor'
@@ -13,6 +13,10 @@ import { useRouter } from 'next/navigation'
 import { DocsSidebar } from '@/components/DocsSidebar'
 import { ShareDialog } from '@/components/ShareDialog'
 import { getDocument, type DocumentSummary } from '@/lib/documents'
+import { useCollaboration } from '@/hooks/useCollaboration'
+import { useThrottle } from '@/hooks/useThrottle'
+import { useDebouncedCallback } from '@/hooks/useDebouncedCallback'
+import { PresenceIndicator } from '@/components/PresenceIndicator'
 
 export default function EditorPage() {
   const { user, loading } = useAuth()
@@ -28,16 +32,51 @@ export default function EditorPage() {
   const [sidebarOpen, setSidebarOpen] = useState(true)
 
   const documentId = activeDocument?.id || ''
+  const isReceivingRemoteChange = useRef(false)
 
   // Auto-save hook
   const saveStatus = useAutoSave(documentId, content)
 
-  // Real-time hook
+  // Real-time DB hook (listens for postgres_changes — different from collab channel)
   useRealtimeDocument(documentId, (newContent) => {
     if (newContent !== content) {
       setContent(newContent)
     }
   })
+
+  // Collaboration hook — Presence + Broadcast
+  const handleRemoteContentChange = useCallback((newContent: string) => {
+    isReceivingRemoteChange.current = true
+    setContent(newContent)
+    setTimeout(() => { isReceivingRemoteChange.current = false }, 0)
+  }, [])
+
+  const {
+    collaborators,
+    typingUsers,
+    isConnected,
+    broadcastContentChange,
+    updateCursor,
+  } = useCollaboration({
+    documentId,
+    userId: user?.id ?? '',
+    displayName: user?.email?.split('@')[0] ?? 'Anonymous',
+    onContentChange: handleRemoteContentChange,
+  })
+
+  const throttledUpdateCursor = useThrottle(updateCursor, 100)
+  const debouncedBroadcast = useDebouncedCallback(
+    (c: string) => broadcastContentChange(c),
+    300
+  )
+
+  // Handle local content change — broadcast only if not from remote
+  function handleContentChange(newContent: string) {
+    setContent(newContent)
+    if (!isReceivingRemoteChange.current) {
+      debouncedBroadcast(newContent)
+    }
+  }
 
   // Load document content when active document changes
   useEffect(() => {
@@ -347,6 +386,14 @@ export default function EditorPage() {
             </p>
           </div>
         </div>
+        {/* Collaboration Presence */}
+        {documentId && (
+          <PresenceIndicator
+            collaborators={collaborators}
+            isConnected={isConnected}
+            typingUsers={typingUsers}
+          />
+        )}
         
         <div className="flex items-center gap-2">
           {/* Share button */}
@@ -427,7 +474,9 @@ export default function EditorPage() {
                   <DocumentEditor 
                     key={activeDocument.id}
                     content={content}
-                    onChange={setContent}
+                    onChange={handleContentChange}
+                    collaborators={collaborators}
+                    onCursorMove={throttledUpdateCursor}
                   />
                 </Panel>
                 
