@@ -25,6 +25,9 @@ export function DiffModal({ versionIdA, versionIdB, onClose }: DiffModalProps) {
   const [currentChangeIndex, setCurrentChangeIndex] = useState(0)
 
   const changeRefs = useRef<(HTMLDivElement | null)[]>([])
+  const leftPanelRef = useRef<HTMLDivElement>(null)
+  const rightPanelRef = useRef<HTMLDivElement>(null)
+  const isSyncingScroll = useRef(false)
 
   useEffect(() => {
     async function load() {
@@ -93,6 +96,33 @@ export function DiffModal({ versionIdA, versionIdB, onClose }: DiffModalProps) {
     window.addEventListener('keydown', handleKey)
     return () => window.removeEventListener('keydown', handleKey)
   }, [onClose])
+
+  // Pre-compute index map: DiffLine → original index (O(1) lookup vs O(n) indexOf)
+  const origIndexMap = useRef(new Map<DiffLine, number>())
+  useEffect(() => {
+    origIndexMap.current.clear()
+    diffResult?.lines.forEach((line, i) => {
+      origIndexMap.current.set(line, i)
+    })
+  }, [diffResult])
+
+  // Sync scroll antara panel kiri dan kanan
+  const handleSyncScroll = useCallback((source: 'left' | 'right') => {
+    if (isSyncingScroll.current) return
+    isSyncingScroll.current = true
+
+    const sourceEl = source === 'left' ? leftPanelRef.current : rightPanelRef.current
+    const targetEl = source === 'left' ? rightPanelRef.current : leftPanelRef.current
+
+    if (sourceEl && targetEl) {
+      const ratio = sourceEl.scrollTop / (sourceEl.scrollHeight - sourceEl.clientHeight || 1)
+      targetEl.scrollTop = ratio * (targetEl.scrollHeight - targetEl.clientHeight)
+    }
+
+    requestAnimationFrame(() => {
+      isSyncingScroll.current = false
+    })
+  }, [])
 
   // Warna latar per tipe baris
   function getLineBg(type: DiffLine['type']) {
@@ -379,8 +409,11 @@ export function DiffModal({ versionIdA, versionIdB, onClose }: DiffModalProps) {
                 isDark ? 'divide-white/10' : 'divide-gray-200'
               }`}
             >
-              {/* Panel kiri: versi LAMA */}
-              <div className="overflow-auto">
+              <div
+                ref={leftPanelRef}
+                onScroll={() => handleSyncScroll('left')}
+                className="overflow-auto"
+              >
                 <div
                   className={`sticky top-0 px-3 py-1.5 text-xs border-b z-10 font-medium ${
                     isDark
@@ -407,8 +440,8 @@ export function DiffModal({ versionIdA, versionIdB, onClose }: DiffModalProps) {
                       key={i}
                       ref={(el) => {
                         if (line.type === 'removed') {
-                          const origIndex = diffResult.lines.indexOf(line)
-                          changeRefs.current[origIndex] = el
+                          const origIdx = origIndexMap.current.get(line)
+                          if (origIdx !== undefined) changeRefs.current[origIdx] = el
                         }
                       }}
                       className={`flex ${getLineBg(line.type)}`}
@@ -432,7 +465,11 @@ export function DiffModal({ versionIdA, versionIdB, onClose }: DiffModalProps) {
               </div>
 
               {/* Panel kanan: versi BARU */}
-              <div className="overflow-auto">
+              <div
+                ref={rightPanelRef}
+                onScroll={() => handleSyncScroll('right')}
+                className="overflow-auto"
+              >
                 <div
                   className={`sticky top-0 px-3 py-1.5 text-xs border-b z-10 font-medium ${
                     isDark
@@ -459,8 +496,8 @@ export function DiffModal({ versionIdA, versionIdB, onClose }: DiffModalProps) {
                       key={i}
                       ref={(el) => {
                         if (line.type === 'added') {
-                          const origIndex = diffResult.lines.indexOf(line)
-                          changeRefs.current[origIndex] = el
+                          const origIdx = origIndexMap.current.get(line)
+                          if (origIdx !== undefined) changeRefs.current[origIdx] = el
                         }
                       }}
                       className={`flex ${getLineBg(line.type)}`}

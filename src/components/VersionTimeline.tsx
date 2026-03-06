@@ -306,7 +306,7 @@ export function VersionTimeline({
                         )}
                       </div>
 
-                      {/* Timestamp */}
+                      {/* Timestamp + author */}
                       <p
                         className={`text-[10px] mt-0.5 ${
                           isDark ? 'text-white/30' : 'text-gray-400'
@@ -320,6 +320,14 @@ export function VersionTimeline({
                           hour: '2-digit',
                           minute: '2-digit',
                         })}
+                        {version.created_by && (
+                          <>
+                            {' · '}
+                            <span title={version.created_by}>
+                              👤 {version.created_by.slice(0, 8)}
+                            </span>
+                          </>
+                        )}
                       </p>
                     </div>
 
