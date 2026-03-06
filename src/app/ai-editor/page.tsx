@@ -35,6 +35,9 @@ export default function EditorPage() {
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [showHistory, setShowHistory] = useState(false)
   const [compareVersions, setCompareVersions] = useState<{ a: string; b: string } | null>(null)
+  const [showSavePrompt, setShowSavePrompt] = useState(false)
+  const [saveLabel, setSaveLabel] = useState('')
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
 
   const documentId = activeDocument?.id || ''
   const isReceivingRemoteChange = useRef(false)
@@ -462,16 +465,9 @@ export default function EditorPage() {
           {/* Save Version button */}
           {activeDocument && (
             <button
-              onClick={async () => {
-                const label = window.prompt('Nama versi ini (opsional):')
-                if (label === null) return
-                try {
-                  await saveNamedVersion(label || '')
-                  window.alert('Versi tersimpan!')
-                } catch (err) {
-                  console.error('Save version failed:', err)
-                  window.alert('Gagal menyimpan versi')
-                }
+              onClick={() => {
+                setSaveLabel('')
+                setShowSavePrompt(true)
               }}
               className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all hover:scale-105 ${
                 isDarkTheme
@@ -639,6 +635,107 @@ export default function EditorPage() {
           ownerId={user.id}
           onClose={() => setShowShareDialog(false)}
         />
+      )}
+
+      {/* Save Version Prompt Dialog */}
+      {showSavePrompt && (
+        <div
+          className="fixed inset-0 z-[200] flex items-center justify-center p-4 backdrop-blur-sm bg-black/60"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowSavePrompt(false)
+          }}
+        >
+          <div className={`w-full max-w-sm rounded-2xl p-6 shadow-2xl border ${
+            isDarkTheme ? 'bg-gray-900 border-white/10' : 'bg-white border-gray-200'
+          }`}>
+            <h3 className={`text-lg font-bold mb-2 ${isDarkTheme ? 'text-white' : 'text-gray-900'}`}>
+              💾 Simpan Versi
+            </h3>
+            <p className={`text-sm mb-4 ${isDarkTheme ? 'text-white/60' : 'text-gray-500'}`}>
+              Beri nama versi ini (opsional):
+            </p>
+            <input
+              autoFocus
+              type="text"
+              value={saveLabel}
+              onChange={(e) => setSaveLabel(e.target.value)}
+              onKeyDown={async (e) => {
+                if (e.key === 'Enter') {
+                  setShowSavePrompt(false)
+                  try {
+                    await saveNamedVersion(saveLabel)
+                    setToast({ message: 'Versi berhasil disimpan!', type: 'success' })
+                  } catch (err) {
+                    console.error('Save version failed:', err)
+                    setToast({ message: 'Gagal menyimpan versi', type: 'error' })
+                  }
+                }
+                if (e.key === 'Escape') setShowSavePrompt(false)
+              }}
+              placeholder="contoh: Draft final, Sebelum refactor..."
+              className={`w-full px-3 py-2 rounded-xl text-sm border outline-none transition-all mb-4 ${
+                isDarkTheme
+                  ? 'bg-white/5 border-white/10 text-white placeholder:text-white/30 focus:border-violet-500'
+                  : 'bg-gray-50 border-gray-200 text-gray-900 placeholder:text-gray-400 focus:border-violet-500'
+              }`}
+            />
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowSavePrompt(false)}
+                className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+                  isDarkTheme
+                    ? 'bg-white/10 text-white/70 hover:bg-white/20'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                Batal
+              </button>
+              <button
+                onClick={async () => {
+                  setShowSavePrompt(false)
+                  try {
+                    await saveNamedVersion(saveLabel)
+                    setToast({ message: 'Versi berhasil disimpan!', type: 'success' })
+                  } catch (err) {
+                    console.error('Save version failed:', err)
+                    setToast({ message: 'Gagal menyimpan versi', type: 'error' })
+                  }
+                }}
+                className={`flex-1 py-2.5 rounded-xl text-sm font-semibold text-white transition-all ${
+                  isDarkTheme
+                    ? 'bg-violet-600 hover:bg-violet-500 shadow-lg shadow-violet-500/20'
+                    : 'bg-violet-500 hover:bg-violet-600 shadow-md shadow-violet-300/30'
+                }`}
+              >
+                Simpan
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Toast Notification */}
+      {toast && (
+        <div
+          className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-[300] px-4 py-2.5 rounded-xl text-sm font-medium shadow-2xl border flex items-center gap-2 animate-in fade-in slide-in-from-bottom-4 ${
+            toast.type === 'success'
+              ? isDarkTheme
+                ? 'bg-emerald-950 border-emerald-500/30 text-emerald-300'
+                : 'bg-emerald-50 border-emerald-200 text-emerald-700'
+              : isDarkTheme
+              ? 'bg-red-950 border-red-500/30 text-red-300'
+              : 'bg-red-50 border-red-200 text-red-700'
+          }`}
+          ref={(el) => {
+            if (el) {
+              const timer = setTimeout(() => setToast(null), 3000)
+              el.dataset.timer = String(timer)
+            }
+          }}
+        >
+          <span>{toast.type === 'success' ? '✅' : '❌'}</span>
+          {toast.message}
+        </div>
       )}
     </div>
   )

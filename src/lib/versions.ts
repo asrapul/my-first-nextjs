@@ -48,6 +48,11 @@ export async function createSnapshot(
     .single()
 
   if (error) {
+    // Duplicate key = race condition antara 2 tab — bukan error fatal
+    if (error.code === '23505') {
+      console.warn('createSnapshot: duplicate version_number (race condition), skipping')
+      return null
+    }
     console.error('createSnapshot error:', error.message, error.code, error.details)
     throw new Error(`Gagal menyimpan versi: ${error.message}`)
   }
@@ -62,12 +67,16 @@ export async function getVersionList(
   page: number = 0,
   pageSize: number = 20
 ): Promise<{ versions: DocumentVersionSummary[]; hasMore: boolean }> {
+  // Supabase .range(a, b) inklusif di kedua ujung → ambil pageSize + 1 row
+  const from = page * pageSize
+  const to = from + pageSize // inklusif → total = pageSize + 1 row
+
   const { data, error } = await supabase
     .from('document_versions')
     .select('id, document_id, version_number, label, created_by, created_at')
     .eq('document_id', documentId)
     .order('version_number', { ascending: false })
-    .range(page * pageSize, (page + 1) * pageSize) // ambil 1 extra untuk cek hasMore
+    .range(from, to)
 
   if (error) throw new Error('Gagal mengambil histori versi')
 

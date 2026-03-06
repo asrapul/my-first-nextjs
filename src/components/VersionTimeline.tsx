@@ -7,6 +7,7 @@ import {
   type DocumentVersionSummary,
 } from '@/lib/versions'
 import { useTheme } from './ThemeProvider'
+import { ConfirmDialog } from './ConfirmDialog'
 
 interface VersionTimelineProps {
   documentId: string
@@ -46,6 +47,8 @@ export function VersionTimeline({
   // State untuk pilih 2 versi arbitrary
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [isRestoring, setIsRestoring] = useState<string | null>(null)
+  const [restoreTarget, setRestoreTarget] = useState<DocumentVersionSummary | null>(null)
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
   const loadVersions = useCallback(
     async (pageNum: number, append = false) => {
@@ -77,26 +80,23 @@ export function VersionTimeline({
     })
   }
 
-  async function handleRestore(version: DocumentVersionSummary) {
-    const confirmed = window.confirm(
-      `Restore ke v${version.version_number}? Versi saat ini akan tersimpan otomatis sebelum restore.`
-    )
-    if (!confirmed) return
+  async function executeRestore(version: DocumentVersionSummary) {
     try {
       setIsRestoring(version.id)
+      setErrorMessage(null)
       const restoredContent = await restoreVersion(
         documentId,
         version.id,
         userId
       )
-      // Reload versi setelah restore
       await loadVersions(0)
       onContentRestore(restoredContent)
     } catch (err) {
       console.error('Restore failed:', err)
-      window.alert('Gagal restore versi')
+      setErrorMessage('Gagal restore versi. Silakan coba lagi.')
     } finally {
       setIsRestoring(null)
+      setRestoreTarget(null)
     }
   }
 
@@ -326,7 +326,7 @@ export function VersionTimeline({
                     {/* Tombol restore */}
                     {!isLatest && (
                       <button
-                        onClick={() => handleRestore(version)}
+                        onClick={() => setRestoreTarget(version)}
                         disabled={isRestoring === version.id}
                         className={`hidden group-hover:inline-flex items-center text-[10px] font-medium px-2 py-1 rounded-md transition-all shrink-0 ${
                           isDark
@@ -361,6 +361,40 @@ export function VersionTimeline({
           </>
         )}
       </div>
+
+      {/* Error message */}
+      {errorMessage && (
+        <div
+          className={`px-3 py-2 text-xs border-t ${
+            isDark
+              ? 'bg-red-950/50 text-red-300 border-red-500/20'
+              : 'bg-red-50 text-red-600 border-red-200'
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <span>{errorMessage}</span>
+            <button
+              onClick={() => setErrorMessage(null)}
+              className="ml-2 opacity-60 hover:opacity-100"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Confirm restore dialog */}
+      {restoreTarget && (
+        <ConfirmDialog
+          title={`Restore ke v${restoreTarget.version_number}?`}
+          message="Versi saat ini akan tersimpan otomatis sebelum dokumen dikembalikan ke versi yang dipilih."
+          confirmLabel="Restore"
+          cancelLabel="Batal"
+          variant="danger"
+          onConfirm={() => executeRestore(restoreTarget)}
+          onCancel={() => setRestoreTarget(null)}
+        />
+      )}
     </div>
   )
 }
