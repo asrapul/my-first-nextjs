@@ -17,6 +17,9 @@ import { useCollaboration } from '@/hooks/useCollaboration'
 import { useThrottle } from '@/hooks/useThrottle'
 import { useDebouncedCallback } from '@/hooks/useDebouncedCallback'
 import { PresenceIndicator } from '@/components/PresenceIndicator'
+import { useAutoSnapshot } from '@/hooks/useAutoSnapshot'
+import { VersionTimeline } from '@/components/VersionTimeline'
+import { DiffModal } from '@/components/DiffModal'
 
 export default function EditorPage() {
   const { user, loading } = useAuth()
@@ -30,12 +33,21 @@ export default function EditorPage() {
   const [isInitializing, setIsInitializing] = useState(true)
   const [showShareDialog, setShowShareDialog] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [showHistory, setShowHistory] = useState(false)
+  const [compareVersions, setCompareVersions] = useState<{ a: string; b: string } | null>(null)
 
   const documentId = activeDocument?.id || ''
   const isReceivingRemoteChange = useRef(false)
 
   // Auto-save hook
   const saveStatus = useAutoSave(documentId, content)
+
+  // Auto-snapshot hook (every 30s)
+  const { saveNamedVersion } = useAutoSnapshot({
+    documentId,
+    content,
+    userId: user?.id ?? '',
+  })
 
   // Real-time DB hook (listens for postgres_changes — different from collab channel)
   useRealtimeDocument(documentId, (newContent) => {
@@ -143,6 +155,37 @@ export default function EditorPage() {
     )
   }
 
+  // ─── Mobile / Tablet Gate ─────────────────────────────────────────────────
+  // Overlay yang muncul di layar < 1024px
+  const mobileGate = (
+    <div className={`lg:hidden fixed inset-0 z-[100] flex items-center justify-center p-6 ${
+      isDarkTheme ? 'bg-[#0a0a0f]' : 'bg-gradient-to-br from-slate-50 via-white to-violet-50'
+    }`}>
+      <div className={`max-w-sm w-full text-center p-8 rounded-3xl backdrop-blur-xl shadow-2xl ${
+        isDarkTheme
+          ? 'bg-white/5 border border-white/10'
+          : 'bg-white/70 border border-gray-200/50 shadow-violet-200/20'
+      }`}>
+        <div className={`inline-flex items-center justify-center w-16 h-16 rounded-2xl mb-5 ${
+          isDarkTheme ? 'bg-gradient-to-br from-violet-600 to-fuchsia-600' : 'bg-gradient-to-br from-violet-500 to-fuchsia-500'
+        } shadow-lg`}>
+          <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+          </svg>
+        </div>
+        <h1 className={`text-xl font-bold mb-2 ${isDarkTheme ? 'text-white' : 'text-gray-900'}`}>
+          Gunakan Perangkat Desktop
+        </h1>
+        <p className={`text-sm leading-relaxed mb-6 ${isDarkTheme ? 'text-white/60' : 'text-gray-500'}`}>
+          AI Editor hanya tersedia pada perangkat laptop atau desktop untuk pengalaman pengeditan yang optimal.
+        </p>
+        <p className={`text-xs ${isDarkTheme ? 'text-white/30' : 'text-gray-400'}`}>
+          Silakan buka kembali halaman ini di laptop atau komputer Anda.
+        </p>
+      </div>
+    </div>
+  )
+
   if (!user) {
     return (
       <div className={`min-h-screen font-sans overflow-hidden relative transition-colors duration-500 ${
@@ -150,6 +193,7 @@ export default function EditorPage() {
           ? 'bg-[#0a0a0f] text-white' 
           : 'bg-gradient-to-br from-slate-50 via-white to-violet-50 text-gray-900'
       }`}>
+        {mobileGate}
         
         {/* Animated Background */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
@@ -311,6 +355,7 @@ export default function EditorPage() {
         ? 'bg-[#0a0a0f] text-white' 
         : 'bg-gradient-to-br from-slate-50 via-white to-violet-50 text-gray-900'
     }`}>
+      {mobileGate}
       
       {/* Animated Background */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
@@ -414,6 +459,50 @@ export default function EditorPage() {
             </button>
           )}
 
+          {/* Save Version button */}
+          {activeDocument && (
+            <button
+              onClick={async () => {
+                const label = window.prompt('Nama versi ini (opsional):')
+                if (label === null) return
+                try {
+                  await saveNamedVersion(label || '')
+                  window.alert('Versi tersimpan!')
+                } catch (err) {
+                  console.error('Save version failed:', err)
+                  window.alert('Gagal menyimpan versi')
+                }
+              }}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all hover:scale-105 ${
+                isDarkTheme
+                  ? 'bg-violet-600/80 text-white hover:bg-violet-500 shadow-lg shadow-violet-500/20'
+                  : 'bg-violet-500 text-white hover:bg-violet-600 shadow-md shadow-violet-300/30'
+              }`}
+              title="Save a named version"
+            >
+              💾 Save Version
+            </button>
+          )}
+
+          {/* History toggle */}
+          {activeDocument && (
+            <button
+              onClick={() => setShowHistory(!showHistory)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all hover:scale-105 ${
+                showHistory
+                  ? isDarkTheme
+                    ? 'bg-amber-600/80 text-white shadow-lg shadow-amber-500/20'
+                    : 'bg-amber-500 text-white shadow-md shadow-amber-300/30'
+                  : isDarkTheme
+                  ? 'bg-white/10 text-white hover:bg-white/20'
+                  : 'bg-white/60 text-gray-700 hover:bg-white/80 shadow-sm'
+              }`}
+              title="Toggle version history"
+            >
+              📜 History
+            </button>
+          )}
+
           <button 
             onClick={handleDownload}
             disabled={!activeDocument}
@@ -512,7 +601,36 @@ export default function EditorPage() {
             )}
           </div>
         </div>
+
+        {/* Version History Sidebar */}
+        {showHistory && activeDocument && user && (
+          <div className={`w-72 flex-shrink-0 border-l backdrop-blur-xl overflow-y-auto ${
+            isDarkTheme ? 'border-white/10 bg-black/20' : 'border-violet-100 bg-white/40'
+          }`}>
+            <VersionTimeline
+              documentId={activeDocument.id}
+              userId={user.id}
+              onCompare={(a, b) => {
+                setCompareVersions({ a, b })
+                setShowHistory(false)
+              }}
+              onContentRestore={(newContent) => {
+                setContent(newContent)
+              }}
+              onClose={() => setShowHistory(false)}
+            />
+          </div>
+        )}
       </div>
+
+      {/* Diff Modal */}
+      {compareVersions && (
+        <DiffModal
+          versionIdA={compareVersions.a}
+          versionIdB={compareVersions.b}
+          onClose={() => setCompareVersions(null)}
+        />
+      )}
 
       {/* Share Dialog */}
       {showShareDialog && activeDocument && user && (
